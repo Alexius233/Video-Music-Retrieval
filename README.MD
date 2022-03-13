@@ -1,9 +1,9 @@
-#Video Musical Retrieval
+# Video Musical Retrieval
 
 A PyTorch implementation of our project, hope it appear in our first paper
 Haven't finished yet, maybe it can run in a strange way : )
 
-##File structure
+## File structure
 
 - `Hyperparameters.py` --- hyperparameters
 - `AudioDataReader.py` --- read and process the audio data(need to finish)
