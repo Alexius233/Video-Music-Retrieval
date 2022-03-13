@@ -19,3 +19,8 @@ Haven't finished yet, maybe it can run in a strange way : )
 - `TrainModel.py` --- to train
 - `WFN.py` --- part of VideoModel
 - `videotransforms.py` --- data augumentation for frames
+
+## Dataset
+
+we collect from "tiktok.com" and "douyin.com"
+if you need, you can contact with me by sending E-mail : 2071035929@qq.com
