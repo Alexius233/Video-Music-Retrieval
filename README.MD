@@ -1,7 +1,7 @@
 # Video Musical Retrieval
 
-A PyTorch implementation of our project, hope it appear in our first paper
-Haven't finished yet, maybe it can run in a strange way : )
+- A PyTorch implementation of our project, hope it appear in our first paper
+- Haven't finished yet, maybe it can run in a strange way : )
 
 ## File structure
 
@@ -22,5 +22,5 @@ Haven't finished yet, maybe it can run in a strange way : )
 
 ## Dataset
 
-we collect from "tiktok.com" and "douyin.com"
-if you need, you can contact with me by sending E-mail : 2071035929@qq.com
+- we collect from "tiktok.com" and "douyin.com"
+- if you need, you can contact with me by sending E-mail : 2071035929@qq.com
