@@ -9,10 +9,11 @@ import librosa.display
 # HOP_LEN = 256
 # DURA = 29.12   # 采样长度
 
-def Audio_feature_extractionder(indir, SR, N_FFT, HOP_LEN, DURA):
+def Audio_feature_extractionder(indir, SR, N_FFT, HOP_LEN, DURA, is_train = True):
 
         # Load audio
-        src, sr = librosa.load(os.path.join(indir, ), sr=SR)
+        audio_name = indir
+        src, sr = librosa.load(indir, sr=SR)
 
         # Trim audio
         n_sample = src.shape[0]
@@ -133,5 +134,9 @@ def Audio_feature_extractionder(indir, SR, N_FFT, HOP_LEN, DURA):
         f.close()
         """
 
+        if is_train:
+            return MelSpectrogram,fv_mean,fv_var,fv_amax
 
-        return MelSpectrogram,fv_mean,fv_var,fv_amax
+        else:
+            return MelSpectrogram,fv_mean,fv_var,fv_amax, audio_name
+

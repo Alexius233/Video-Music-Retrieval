@@ -26,7 +26,7 @@ def train(log_dir, dataset_size, device, writer, start_epoch=0):
 
 
     # 整合的最终模型
-    model = TotalModel(hp.n_feature).cuda()
+    model = TotalModel(hp.n_feature, 0.5).cuda()
 
     if torch.cuda.device_count() > 1:
        model = DataParallel(model)
@@ -66,13 +66,13 @@ def train(log_dir, dataset_size, device, writer, start_epoch=0):
         train_dataset = VMR_Dataset(hp.root1,
                                     hp.start,
                                     hp.strategy1,
-                                    Transforms,
+                                    Transforms(224),
                                     row=slice(hp.eval_size, None))
     else:
         train_dataset = VMR_Dataset(hp.root1,
                                     hp.start,
                                     hp.strategy1,
-                                    Transforms,
+                                    Transforms(224),
                                     row=slice(hp.eval_size, hp.eval_size + dataset_size))
 
     train_loader = DataLoader(dataset=train_dataset,

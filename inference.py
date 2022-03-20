@@ -1,8 +1,15 @@
 import numpy as np
 import torch
+from torch.utils.data import DataLoader
+from TotalModel import TotalModel
+from Hyperparameters import Hyperparameters as hp
+from VMR_Dataset import VMR_Dataset
+from videotransforms import Transforms_for_test
 
 """
 Notation:  dataset里要写新的传递inference数据的接口
+           本文件是作用是:可以在训练中当验证，也可以在完成后完成单次推理
+           这里读取的数据因为写的dataset的原因 视频和音频 是 等数量的，想要不等数量需要重新写两个，使用两个分别的dataloder读取
 
 """
 
@@ -17,58 +24,70 @@ def cosine_sim(im, s):          # 已修改，无问题
 
     return sim
 
+def forward_embed(video_data, audio_data, model):   # 调用模型，和得到计算结果
+
+    video_embeds,audio_embeds = model(video_data, audio_data)
+
+
+    return video_embeds,audio_embeds
+
 
 def generate_scores(self, **kwargs):     # 生成分数的核心就是 cos相似度   # 已修改，无问题
     # compute image-sentence similarity
     vid_embeds = kwargs['vid_embeds']
-    cap_embeds = kwargs['cap_embeds']
-    scores = cosine_sim(vid_embeds, cap_embeds) # s[i, j] i: im_idx, j: s_idx
+    adu_embeds = kwargs['aud_embeds']
+    scores = cosine_sim(vid_embeds, adu_embeds) # s[i, j] i: im_idx, j: s_idx
+
     return scores
 
 
-def evaluate_scores(tst_reader):  # tst_reader是个dataloader ，       评估的是一个视频对一个批次音频的相似度   ， 未修改
+def evaluate_scores(tst_reader, model):  # tst_reader是个dataloader ，       评估的是一个视频对n个批次音频的相似度   ， 第2级
 
-    video_names, all_scores = [], []   #  video名字, 分数 的 数组
-    audio_names = tst_reader.dataset.captions  # 不一样，需要改
+    all_video_names, all_audio_names =[], []  #  名字
+    all_scores = []
 
-    for video_data in tst_reader:   # 这么读取是dataset写好的固定方式，我还没写
-        video_names.extend(video_data['names'])
-        video_enc_outs = forward_video_embed(video_data)
-        all_scores.append([])
+    for video_data,audio_data in tst_reader:   # 这么读取是dataset写好的固定方式，我还没写
+        video_names = video_data['video_name']
+        audio_names = audio_data['audio_name']
+        video_feature, audio_feature = forward_embed(video_data, audio_data, model)
+        embed = {'vid_embeds':video_feature,'aud_embeds':audio_feature}
 
-        for audio_data in tst_reader.dataset.iterate_over_captions(self.config.tst_batch_size):
-            audio_enc_outs = forward_audio_embed(audio_data)
-            audio_enc_outs.update(video_enc_outs)
-            scores = generate_scores(**audio_enc_outs)  # video 对 audio 的score
-            all_scores[-1].append(scores.data.cpu().numpy())    # 把分数添上去
+        score = generate_scores(**embed)  # video 对 audio 的score
 
-        all_scores[-1] = np.concatenate(all_scores[-1], axis=1)
-    all_scores = np.concatenate(all_scores, axis=0)             # (n_video, n_audio) 二维数组， 每行对应的是不同的video，每列是对应的排好序的audio的分数
+        all_video_names.append(video_names)
+        all_audio_names.append(audio_names)
+        all_scores.append(score)  # 这是n个批次的分数
 
-    return video_names, audio_names, all_scores
+    return all_video_names, all_audio_names, all_scores
 
 
 
-def evaluate(tst_reader):     #  单一计算分数的函数   ，  # 已修改，无问题
+def evaluate(tst_reader, model):     #  单一计算分数的函数   ，  # 已修改，无问题   # 第1级
 
-    video_names, audio_names, scores = evaluate_scores(tst_reader)  # 接收video, audio, 和对应分数矩阵（应该就是正方形的）
+    video_names, audio_names, all_scores = evaluate_scores(tst_reader, model=model)  # 接收video, audio, 和对应分数矩阵（应该就是正方形的）
 
     ranking_list = []        # 创立排名矩阵
-    lens = len(scores[0])    # 多少个audios
 
-    for i in video_names:   # videonames遍历(可能存在问题)
-        ranking_list.append([])     # 加一行
-        while len(scores[i]) != 0 :
-            max = 0
-            j = 0
-            index = 0
+    lens = len(all_scores[0][0])    # 多少个audios
+    size = len(all_scores[0])
 
-            for j in range(0, len(scores[i])):
-                if scores[i][j] >= max:
-                    index = j
-                    max = scores[i][j]
+    for i in range(0, size):
+        ranking_branch = []
+        for j in video_names:   # videonames遍历(可能存在问题)
+            ranking_branch.append([])     # 加一行
+            while len(all_scores[i][j]) != 0 :
+                max = 0
+                k = 0
+                index = 0
 
-            ranking_list[-1].append(audio_names[index])   # 写上audio名字
+                for k in range(0, len(all_scores[i][j])):
+                    if all_scores[i][j][k] >= max:
+                        index = j
+                        max = all_scores[i][j][k]
+
+                ranking_branch[-1].append(audio_names[index])   # 写上audio名字
+
+        ranking_list.append(ranking_branch)
     """
     outs = {
     'video_names': video_names,
@@ -85,15 +104,36 @@ def evaluate(tst_reader):     #  单一计算分数的函数   ，  # 已修改�
 
 
 def test(tst_reader, log_dir, load = True):  # 综合的： 读取，计算，写入   # 未修改完全
+
+    model = TotalModel(hp.n_feature, 0, is_train=False).cuda()  # 无dropout
+
+    test_dataset = VMR_Dataset(hp.root2,
+                                hp.start,
+                                hp.strategy1,
+                                Transforms_for_test(224),
+                                row=slice(hp.eval_size, None))
+
+    test_loader = DataLoader(dataset=test_dataset,
+                              batch_size=hp.test_batch_size,
+                              drop_last=True,
+                              num_workers=8,
+                              shuffle=True)
+
     if log_dir is not None and load == True:
         load_checkpoint(log_dir)      # 读取这个点的模型存档，写想读的存档点
 
-    eval_start()
+    eval_start()  # 我还没弄懂是干什么的
 
-    outs = evaluate(tst_reader)
+
+    video_names, audio_names, ranks = evaluate(test_loader, model=model)
+    # 现在接收的是三维的数据[nums, batchsize], [nums, batchsize], [nums, batchsize, batchsize]
+
+
+    #all_scores = np.concatenate(all_scores, axis=0)  # (n_video, n_audio) 二维数组， 每行对应的是不同的video，每列是对应的排好序的audio的分数
+                                                      # 作用不明，我未搞懂， 但是应该是写合在一起得分数矩阵
 
     with open(log_dir, 'wb') as f:  # log_dir要改，写想存的文件
-        # 需要写入文档记录一下
+            # 需要写入文档记录一下
 
 
-    return outs
+    # return outs

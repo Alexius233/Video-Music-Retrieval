@@ -26,3 +26,18 @@ class Transforms:
 
     def __call__(self, x):
         return self.train_transform(x)
+
+class Transforms_for_test:
+    def __init__(self, size):
+        s = 1
+
+        self.test_transform = torchvision.transforms.Compose(
+            [
+                torchvision.transforms.RandomResizedCrop(size=size),
+            ]
+        )
+
+
+
+    def __call__(self, x):
+        return self.test_transform(x)

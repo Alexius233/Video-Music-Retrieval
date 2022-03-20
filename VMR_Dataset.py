@@ -28,30 +28,33 @@ def video_to_tensor(pic):
     return torch.from_numpy(pic.transpose([3, 0, 1, 2]))
 
 
-def load_rgb_frames(image_dir, fps, strategy, start = 1):
-    frames = []
+def load_rgb_frames(image_dir, fps, strategy, is_train = True, start = 1):
 
-    fps = int(fps) # 读fps
+    frames = []
+    video_name = [image_dir]
+
+    fps = int(fps)  # 读fps
 
     count = 0
     # 策略待定，随便写的
     # intensive: 一个时间段连续取好几个
-    if strategy =='intensive':
-        for i in  sorted(os.listdir(image_dir)):
+    if strategy == 'intensive':
+        for i in sorted(os.listdir(image_dir)):
             count = count + 1
-            for j in range(count, count + int(1.5*fps)):
-                img = cv2.imread(os.path.join(image_dir, str(i).zfill(6) + '.jpg'))[:, :, [2, 1, 0]]  # 某种转置，方便数据后续转成需要的格式
+            for j in range(count, count + int(1.5 * fps)):
+                img = cv2.imread(os.path.join(image_dir, str(i).zfill(6) + '.jpg'))[:, :,
+                      [2, 1, 0]]  # 某种转置，方便数据后续转成需要的格式
                 w, h, c = img.shape
                 if w < 226 or h < 226:
                     d = 226. - min(w, h)
                     sc = 1 + d / min(w, h)
                     img = cv2.resize(img, dsize=(0, 0), fx=sc, fy=sc)
                 img = (img / 255.) * 2 - 1
-                j = j + int(0.5*fps)
+                j = j + int(0.5 * fps)
                 frames.append(img)
 
-   # sparse： 均匀取
-    if strategy =='sparse':
+    # sparse： 均匀取
+    if strategy == 'sparse':
         for i in range(start, start + fps):
             img = cv2.imread(os.path.join(image_dir, str(i).zfill(6) + '.jpg'))[:, :, [2, 1, 0]]  # 某种转置，方便数据后续转成需要的格式
             w, h, c = img.shape
@@ -62,7 +65,11 @@ def load_rgb_frames(image_dir, fps, strategy, start = 1):
             img = (img / 255.) * 2 - 1
             frames.append(img)
 
-    return np.asarray(frames, dtype=np.float32)
+    if is_train:
+        return np.asarray(frames, dtype=np.float32)
+
+    else:
+        return np.asarray(frames, dtype=np.float32), video_name
 
 def get_types_data(root, types, row):   # root: 数据集地址 ; types: train, test, valid
 
@@ -90,13 +97,16 @@ def get_types_data(root, types, row):   # root: 数据集地址 ; types: train, 
 
 class VMR_Dataset(data_utl.Dataset):
 
-    def __init__(self,root, start, strategy, transforms=None, row=slice(0, None)):
+    def __init__(self,root, start, strategy, is_train = True, transforms=None, row=slice(0, None)):
 
         #self.data = load_rgb_frames(image_dir, vid, start, num)
 
         self.start = start
         self.strategy = strategy
         self.transforms = transforms
+        self.is_train = is_train
+        self.AFE = AFE
+
 
         videopath,fps,audiopath = get_types_data(root, row)
 
@@ -106,33 +116,63 @@ class VMR_Dataset(data_utl.Dataset):
 
     def __getitem__(self, index):
 
+        if self.is_train:
+            out = {}
+            imgs = load_rgb_frames(self.videopath[index], self.fps[index], self.strategy, is_train=self.is_train)
 
-        imgs = load_rgb_frames(self.videopath[index], self.fps[index], self.strategy)
+            imgs = video_to_tensor(imgs)
+            # 还需要写一个 压缩长度的处理函数
 
-        imgs = self.transforms(imgs)
+            spe, fv_mean,fv_var,fv_amax= self.AFE(self.audiopath[index], hp.SR, hp.N_FFT, hp.HOP_LEN, hp.DURA)
+            spe = torch.from_numpy(spe)
+            fv_feature = []
+            fv_feature.append(fv_mean)
+            fv_feature.append(fv_var)
+            fv_feature.append(fv_amax)
+            fv_feature = np.asarray(fv_feature, dtype=np.float32)
 
-        imgs = video_to_tensor(imgs)
-        # 还需要写一个 压缩长度的处理函数
+            #fv_mean = torch.from_numpy(fv_mean)
+            #fv_var = torch.from_numpy(fv_var)
+            #fv_amax = torch.from_numpy(fv_amax)
 
-        spe, fv_mean,fv_var,fv_amax = AFE(self.audiopath[index], hp.SR, hp.N_FFT, hp.HOP_LEN, hp.DURA)
-        spe = torch.from_numpy(spe)
-        fv_feature = []
-        fv_feature.append(fv_mean)
-        fv_feature.append(fv_var)
-        fv_feature.append(fv_amax)
-        fv_feature = np.asarray(fv_feature, dtype=np.float32)
+            out['video'] = imgs
+            out['mel']   = spe
+            out['fv_feature'] = fv_feature
 
-        #fv_mean = torch.from_numpy(fv_mean)
-        #fv_var = torch.from_numpy(fv_var)
-        #fv_amax = torch.from_numpy(fv_amax)
+            # return 这么多没问题， dataloder传上去之后还可以拆分
+            # 这是起的别名，方便引用
 
+            return out
 
-        return {'video':imgs, 'mel':spe, 'fv_feature':fv_feature}
+        else:
+            out = {}
+            imgs , video_name= load_rgb_frames(self.videopath[index], self.fps[index], self.strategy, is_train=self.is_train)
 
-       # return 这么多没问题， dataloder传上去之后还可以拆分
-       # 这是起的别名，方便引用
+            spe, fv_mean,fv_var,fv_amax, audio_name= self.AFE(self.audiopath[index], hp.SR, hp.N_FFT, hp.HOP_LEN, hp.DURA)
+            spe = torch.from_numpy(spe)
+            fv_feature = []
+            fv_feature.append(fv_mean)
+            fv_feature.append(fv_var)
+            fv_feature.append(fv_amax)
+            fv_feature = np.asarray(fv_feature, dtype=np.float32)
+            spe = torch.from_numpy(spe)
+            fv_feature = []
+            fv_feature.append(fv_mean)
+            fv_feature.append(fv_var)
+            fv_feature.append(fv_amax)
+            fv_feature = np.asarray(fv_feature, dtype=np.float32)
+            # it seems that it is a redundant code, but i'm too tired to fix
+            out['video'] = imgs
+            out['mel'] = spe
+            out['fv_feature'] = fv_feature
+            out['video_name'] = video_name
+            out['audio_name'] = audio_name
+
+            return out
 
 
     def __len__(self):
         return len(self.videopath)
+
+
 

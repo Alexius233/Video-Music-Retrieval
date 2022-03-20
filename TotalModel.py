@@ -3,11 +3,12 @@ from AudioModel import Audiomodel as AMo
 from VideoModel import VideoModel as VMo
 
 class TotalModel(nn.Module):
-    def __init__(self, n_features):
+    def __init__(self, n_features, dropout, is_train = True):
         super(TotalModel, self).__init__()
 
         self.videoencoder = VMo()
-        self.audioencoder = AMo(dropout=0.5)
+        self.audioencoder = AMo(dropout=dropout)
+        self.is_train = is_train
 
         # We use a MLP with one hidden layer to obtain z_i = g(h_i) = W(2)σ(W(1)h_i) where σ is a ReLU non-linearity.
         self.projector = nn.Sequential(
@@ -24,4 +25,7 @@ class TotalModel(nn.Module):
         z_v = self.projector(h_v)
         z_a = self.projector(h_a)
 
-        return l_a, l_v, z_a, z_v
+        if self.is_train:
+            return l_a, l_v, z_a, z_v
+        else:
+            return h_v, h_a

@@ -15,7 +15,7 @@ class Hyperparameters():
     #GPU
     device = 'cuda:0'
 
-    #train paramters
+    #train parameters
     lr = 0.001
     batch_size = 16
     num_epochs = 100
@@ -24,6 +24,9 @@ class Hyperparameters():
     log_per_batch = 20
     seed = 42
     lr_step = [500000, 1000000, 2000000]  # 可以改
+
+    #test parameters
+    test_batch_size = 10
 
 
     #GQDL
