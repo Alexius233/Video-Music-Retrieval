@@ -19,6 +19,7 @@
 - `TrainModel.py` --- to train
 - `WFN.py` --- part of VideoModel
 - `videotransforms.py` --- data augumentation for frames
+- `inference.py` --- used for assess performance of the model
 
 ## Dataset
 
