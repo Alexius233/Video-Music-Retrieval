@@ -12,6 +12,7 @@ from Loss_Function import ContrastiveLoss
 from time import time
 from videotransforms import Transforms
 from torch.utils.tensorboard import SummaryWriter
+from inference import assess
 
 
 
@@ -33,7 +34,7 @@ def train(log_dir, dataset_size, device, writer, start_epoch=0):
         # GPU不止一个，并行计算
     if start_epoch != 0:
         model_path = os.path.join(log_dir, 'state', 'epoch{}.pt'.format(start_epoch))
-        model.load_state_dict(torch.load(model_path))  # 加载之前保存的参数
+        model.load_state_dict(torch.load(model_path))  # 加载之前保存的参数, load_state_dict: 加载参数, torch_load: 读取文件内的参数，返回参数
         msg = 'Load model of' + model_path
     else:
         msg = 'New model'
@@ -148,6 +149,10 @@ def train(log_dir, dataset_size, device, writer, start_epoch=0):
 
             model.eval()
 
+        # assses the current model, test_per_epoch is equal to save_per_epoch!
+        if epoch % hp.test_per_epoch == 0 and epoch != 0:
+            result = assess(log_dir, epoch)
+
     msg = 'Training Finish !!!!'
     f.write(msg + '\n')
     print(msg)
@@ -156,7 +161,7 @@ def train(log_dir, dataset_size, device, writer, start_epoch=0):
 
 
 
-def set_lr(optimizer, step, f, writer):
+def set_lr(optimizer, step, f, writer):   # 阶梯形 梯度
     if step == 500000:
         msg = 'set lr = 0.0005'
         new_lr = 0.0005
@@ -199,14 +204,12 @@ def main(log_dir,dataset_size):
     # create files
     if not os.path.exists(log_dir):
         os.mkdir(log_dir)
-    if not os.path.exists(os.path.join(log_dir, 'state')):
+    if not os.path.exists(os.path.join(log_dir, 'state')):  # 保存模型参数
         os.mkdir(os.path.join(log_dir, 'state'))
-    if not os.path.exists(os.path.join(log_dir, 'wav')):
-        os.mkdir(os.path.join(log_dir, 'wav'))
-    if not os.path.exists(os.path.join(log_dir, 'state_opt')):
+    if not os.path.exists(os.path.join(log_dir, 'state_opt')):  # 保存 优化器 的参数
         os.mkdir(os.path.join(log_dir, 'state_opt'))
-    if not os.path.exists(os.path.join(log_dir, 'attn')):
-        os.mkdir(os.path.join(log_dir, 'attn'))
+    if not os.path.exists(os.path.join(log_dir, 'rank')):
+        os.mkdir(os.path.join(log_dir, 'rank'))
 
     writer = SummaryWriter()
 

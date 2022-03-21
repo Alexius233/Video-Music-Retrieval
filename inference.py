@@ -1,4 +1,5 @@
 import numpy as np
+import os
 import torch
 from torch.utils.data import DataLoader
 from TotalModel import TotalModel
@@ -41,14 +42,16 @@ def generate_scores(self, **kwargs):     # 生成分数的核心就是 cos相似
     return scores
 
 
-def evaluate_scores(tst_reader, model):  # tst_reader是个dataloader ，       评估的是一个视频对n个批次音频的相似度   ， 第2级
+def evaluate_scores(dataloader, model):  # tst_reader是个dataloader ，       评估的是一个视频对n个批次音频的相似度   ， 第2级
 
     all_video_names, all_audio_names =[], []  #  名字
     all_scores = []
 
-    for video_data,audio_data in tst_reader:   # 这么读取是dataset写好的固定方式，我还没写
-        video_names = video_data['video_name']
-        audio_names = audio_data['audio_name']
+    for batch in dataloader:   # 这么读取是dataset写好的固定方式，我还没写
+        video_names = batch['video_name']
+        audio_names = batch['audio_name']
+        video_data = batch['video']
+        audio_data = batch['mel']
         video_feature, audio_feature = forward_embed(video_data, audio_data, model)
         embed = {'vid_embeds':video_feature,'aud_embeds':audio_feature}
 
@@ -62,9 +65,9 @@ def evaluate_scores(tst_reader, model):  # tst_reader是个dataloader ，       
 
 
 
-def evaluate(tst_reader, model):     #  单一计算分数的函数   ，  # 已修改，无问题   # 第1级
+def evaluate(dataloader, model):     #  单一计算分数的函数   ，  # 已修改，无问题   # 第1级
 
-    video_names, audio_names, all_scores = evaluate_scores(tst_reader, model=model)  # 接收video, audio, 和对应分数矩阵（应该就是正方形的）
+    video_names, audio_names, all_scores = evaluate_scores(dataloader, model=model)  # 接收video, audio, 和对应分数矩阵（应该就是正方形的）
 
     ranking_list = []        # 创立排名矩阵
 
@@ -103,7 +106,7 @@ def evaluate(tst_reader, model):     #  单一计算分数的函数   ，  # 已
 
 
 
-def test(tst_reader, log_dir, load = True):  # 综合的： 读取，计算，写入   # 未修改完全
+def assess(log_dir, num_epoch, load = True):  # 综合的： 读取，计算，写入   # 未修改完全
 
     model = TotalModel(hp.n_feature, 0, is_train=False).cuda()  # 无dropout
 
@@ -117,12 +120,16 @@ def test(tst_reader, log_dir, load = True):  # 综合的： 读取，计算，�
                               batch_size=hp.test_batch_size,
                               drop_last=True,
                               num_workers=8,
-                              shuffle=True)
+                              shuffle=False)
+
+
 
     if log_dir is not None and load == True:
-        load_checkpoint(log_dir)      # 读取这个点的模型存档，写想读的存档点
+        model_path = os.path.join(log_dir, 'state', 'epoch{}.pt'.format(num_epoch))  # 拿出地址
+        model.load_state_dict(torch.load(model_path))  # 读取这个点的模型存档，写想读的存档点
 
-    eval_start()  # 我还没弄懂是干什么的
+
+    # eval_start()  # 我还没弄懂是干什么的
 
 
     video_names, audio_names, ranks = evaluate(test_loader, model=model)
@@ -132,8 +139,22 @@ def test(tst_reader, log_dir, load = True):  # 综合的： 读取，计算，�
     #all_scores = np.concatenate(all_scores, axis=0)  # (n_video, n_audio) 二维数组， 每行对应的是不同的video，每列是对应的排好序的audio的分数
                                                       # 作用不明，我未搞懂， 但是应该是写合在一起得分数矩阵
 
-    with open(log_dir, 'wb') as f:  # log_dir要改，写想存的文件
-            # 需要写入文档记录一下
+    #with open(os.path.join(log_dir, 'rank/epoch{}.txt'.format(num_epoch)), 'wb') as f:  # 打开想存的文件位置, 没有直接创建
 
 
-    # return outs
+    if not os.path.exists(os.path.join(log_dir, 'rank/epoch{}'.format(num_epoch))): # 创建rank/epoch n 的文件，存单个np的数组
+        os.mkdir(log_dir)
+
+    vname = np.array(video_names)
+    np.save(os.path.join(log_dir, 'rank/epoch{}_vname'.format(num_epoch)), vname)
+    aname = np.array(audio_names)
+    np.save(os.path.join(log_dir, 'rank/epoch{}_aname'.format(num_epoch)), aname)
+    rank = np.array(ranks)
+    np.save(os.path.join(log_dir, 'rank/epoch{}_rank'.format(num_epoch)), rank)
+
+
+
+
+
+
+    return {'batch_video_names':video_names, 'batch_audio_names':audio_names,'batch_rank':ranks}
