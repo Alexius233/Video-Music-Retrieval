@@ -7,13 +7,17 @@ import librosa.display
 # SR = 12000  # 采样率
 # N_FFT = 512
 # HOP_LEN = 256
-# DURA = 29.12   # 采样长度
+# DURA = 8.129   # 采样长度
+# n_mel = 96
+
+# hop_len 的作用是 : Sr * DURA / hop_len 影响wide, n_mel 的作用是 : 决定height,n_mel是多少height是多少
+            # n_fft : 似乎是影响了分贝数,特征的整体数值大小
 
 def Audio_feature_extractionder(indir, SR, N_FFT, HOP_LEN, DURA, is_train = True):
 
         # Load audio
         audio_name = indir
-        src, sr = librosa.load(indir, sr=SR)
+        src, sr = librosa.load(indir, sr=SR) # value num = Sr * DURA
 
         # Trim audio
         n_sample = src.shape[0]
@@ -23,9 +27,9 @@ def Audio_feature_extractionder(indir, SR, N_FFT, HOP_LEN, DURA, is_train = True
         window_length = sr / 1000 * time_window  # 转换过来的视窗长度
         window_nums = int(n_sample_wanted / window_length)  # 视窗个数
 
-        if n_sample < n_sample_wanted:  # if too short
-            src = np.hstack((src, np.zeros((int(DURA * SR) - n_sample,))))
-        elif n_sample > n_sample_wanted:  # if too long
+        if n_sample < n_sample_wanted:  # if too short, pad zero
+            src = np.hstack(src, np.zeros(int(DURA * SR) - n_sample)) # hstack 是连接操作
+        elif n_sample > n_sample_wanted:  # if too long, cut
             stride = int((n_sample_wanted - window_nums * 400) / (window_nums - 1))
             end_index = stride * (window_nums - 1)
             data = []
@@ -57,7 +61,7 @@ def Audio_feature_extractionder(indir, SR, N_FFT, HOP_LEN, DURA, is_train = True
             else:
                 y = y_percussive
 
-            fv = logam(librosa.feature.chroma_stft(y=y, sr=SR, hop_length=HOP_LEN, n_fft=N_FFT))
+            fv = logam(librosa.feature.chroma_stft(y=y, sr=SR, hop_length=HOP_LEN, n_fft=N_FFT))  #  -> stft
             if i == 0:
                 fv_total = fv
             else:
@@ -68,8 +72,11 @@ def Audio_feature_extractionder(indir, SR, N_FFT, HOP_LEN, DURA, is_train = True
             fv_total = np.vstack((fv_total, fv))
 
             fv = logam(librosa.feature.melspectrogram(y=y, hop_length=HOP_LEN, n_fft=N_FFT, n_mels=96),
-                       ref_power=np.max)
+                       ref_power=np.max)   # stft -> mel
             # log的mel谱
+            # hop_len 的作用是 : Sr * DURA / hop_len 影响wide, n_mel 的作用是 : 决定height,n_mel是多少height是多少
+            # n_fft : 似乎是影响了分贝数,特征的整体数值大小
+
             fv_total = np.vstack((fv_total, fv))
             MelSpectrogram = fv_total
 

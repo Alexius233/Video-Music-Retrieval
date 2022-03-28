@@ -223,7 +223,7 @@ class ResNet_back(nn.Module):  # 写的是resnet-50
         self.params_w = []  # nn.ParameterList([nn.Parameter(torch.randn(size))
         self.relu = nn.ReLU()
 
-        self.upsample = F.upsample()
+        self.upsample = F.upsample
 
     def upsampling(self,_input, pre, stride, padding, tor):
         size = _input.size()
@@ -232,11 +232,11 @@ class ResNet_back(nn.Module):  # 写的是resnet-50
         out = []
         w1 = nn.Parameter(torch.randn(size))
         w1 = F.relu(w1)
-        self.params_w = nn.ParameterList.append(w1)
+        self.params_w = nn.ParameterList(w1)
 
         w2 = nn.Parameter(torch.randn(size))
         w2 = F.relu(w2)
-        self.params_w = nn.ParameterList.append(w2)
+        self.params_w = nn.ParameterList(w2)
 
         out = ((w1 * _input) + (w2 * pre)) / (w1 + w2 + tor)
         out = StepConv(size[2], stride, padding)
@@ -245,9 +245,9 @@ class ResNet_back(nn.Module):  # 写的是resnet-50
 
     def forward(self, x):
         # size = [N*T, C, H, W]
-        x = self.upsample(x, self.y1, 1, 1)
-        x = self.upsample(x, self.y2, 1, 1)
-        x = self.upsample(x, self.y3, 1, 1)
+        x = self.upsample(x, self.y1, 1, mode='nearest')
+        x = self.upsample(x, self.y2, 1, mode='nearest')
+        x = self.upsample(x, self.y3, 1, mode='nearest')
 
         return x
 

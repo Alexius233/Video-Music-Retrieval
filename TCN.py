@@ -16,7 +16,7 @@ class TCN(nn.Module):  # 使用时候创建类可以调用__init__和forward，�
         return pred
 
 
-class Chomp1d(nn.Module):  # 看不懂别管， 就是算padding的数字，下面会自己算
+class Chomp1d(nn.Module):  # 看不懂别管， 就是算padding的数字， 下面会自己算
     def __init__(self, chomp_size):
         super(Chomp1d, self).__init__()
         self.chomp_size = chomp_size

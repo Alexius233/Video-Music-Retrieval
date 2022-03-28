@@ -51,7 +51,7 @@ class STL(nn.Module):
         super().__init__()
         self.embed = nn.Parameter(torch.FloatTensor(hp.token_num, hp.token_emb_size // hp.num_heads))
         d_q = hp.token_emb_size // 2
-        d_k = hp.token_emb_size // hp.num_heads
+        d_k = hp.token_emb_size // hp.num_heads    # 这两个写着意义不明？ 进去linear维度变成了num_unit,也许是增强效果
         # self.attention = MultiHeadAttention(hp.num_heads, d_model, d_q, d_v)
         self.attention = MultiHeadAttention(query_dim=d_q, key_dim=d_k, num_units=hp.token_emb_size, num_heads=hp.num_heads)
 
