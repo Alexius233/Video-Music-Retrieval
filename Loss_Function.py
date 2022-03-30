@@ -7,22 +7,23 @@ from Hyperparameters import Hyperparameters as hp
 def Ecos_sim(V_F, A_F, margin=0):  # vision feature, audio feature
     # vision = tensor[batch_size, channels, Height, Wide] -> tensor[channels, Height, Wide]
     # audio  = tensor[batch_szie, channels, Wide]         -> tensor[channels, Wide]
-    sizeV = V_F.size()
-    sizeA = A_F.size()
 
-    V_F = V_F.view(sizeV[0] * sizeV[1], sizeV[2])
-    A_F = A_F.view(sizeA[0] * sizeA[0])
+    #sizeV = V_F.size()
+    #sizeA = A_F.size()
 
-    upper = torch.mm(V_F, A_F)
+    #V_F = V_F.view(sizeV[0] * sizeV[1], sizeV[2])
+    #A_F = A_F.view(sizeA[0] * sizeA[0])
+
+    upper = V_F.mm(A_F.t())
 
     V_F_norm = torch.sqrt((V_F ** 2).sum(1).view(-1, 1) + 1e-18)
-    A_F_norm = torch.sqrt((A_F ** 2).sum(0) + 1e-18)
+    A_F_norm = torch.sqrt((A_F ** 2).sum(1) + 1e-18)
 
     sim = upper / (V_F_norm * A_F_norm)
 
-    sim = torch.exp(sim - margin)
+    e_sim = torch.exp(sim - margin)
 
-    return sim
+    return e_sim
 
 
 class ContrastiveLoss(nn.Module):

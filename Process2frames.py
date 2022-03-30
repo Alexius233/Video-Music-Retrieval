@@ -62,7 +62,7 @@ for label in sorted(labels):
                 print(rval)
 
                 while rval:  # 循环读取视频帧
-                    c = c + 1  # 一秒取一个
+                    c = c + 1  #
 
                     rval, frame = vc.read()
 

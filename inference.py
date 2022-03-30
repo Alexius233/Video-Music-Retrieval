@@ -29,7 +29,6 @@ def forward_embed(video_data, audio_data, model):   # 调用模型，和得到�
 
     video_embeds,audio_embeds = model(video_data, audio_data)
 
-
     return video_embeds,audio_embeds
 
 

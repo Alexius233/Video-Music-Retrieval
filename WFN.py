@@ -8,9 +8,9 @@ import TCN
 class WPN(nn.Module):
     def __init__(self, dropout):
         super(WPN, self).__init__()
-        self.WPN_p1 = TCN.TCN(hp.TCN_input_size, hp.TCN_output_size, hp.spec_channels, dropout=dropout, kernel_size=hp.TCN_kernel_size)
-        self.WPN_p2 = WPNBlock(hp.TCN_output_size, hp.Bottleneck_output_size, hp.Poolingsize, dropout=dropout)
-        self.Maxpool = nn.MaxPool1d(hp.Poolingsize)
+        self.WPN_p1 = TCN.TCN(hp.TCN_input_size, hp.TCN_output_size, hp.num_channels, dropout=dropout, kernel_size=hp.TCN_kernel_size)
+        self.WPN_p2 = WPNBlock(hp.TCN_output_size, hp.Bottleneck_output_size, hp.out2pool, dropout=dropout)
+        self.Maxpool = nn.AdaptiveMaxPool1d(hp.Pooling_outsize)
         self.k_layers = hp.Depth
 
     def forward(self, x):

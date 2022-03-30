@@ -13,7 +13,7 @@ class Hyperparameters():
     DURA = 8.129   # 采样长度
 
     """
-    输入的mel-spectrogram 规格是 96 * 512
+    输入的mel-spectrogram 规格是 128 * 512
     """
 
     #GPU
@@ -36,33 +36,33 @@ class Hyperparameters():
     # Audio part
 
     #WFN
-    TCN_input_size = 96   # 输入深度
-    TCN_output_size = 96  #应该是与上面一致
-    num_channels = [96] * 4    # hidden layer 宽度不变
+    TCN_input_size = 128   # 输入深度
+    TCN_output_size = 128  #应该是与上面一致
+    num_channels = [128] * 4    # hidden layer 宽度不变
     TCN_kernel_size = 4
-    Bottleneck_output_size = 48  # 瓶颈层中的压缩的那层参数, 试试压缩一半
-    # 走完 TCN 规格还是 96 * 512
-    out2pool = 96   # 一个1*1卷积的输出, 先试试不变
+    Bottleneck_output_size = 464  # 瓶颈层中的压缩的那层参数, 试试压缩一半
+    # 走完 TCN 规格还是 128 * 512
+    out2pool = 128   # 一个1*1卷积的输出, 先试试不变
     Pooling_outsize = 256  # AdaptiveMaxpool
-    # 现在是 96 * 256
+    # 现在是 128 * 256
     Depth = 9     # WFN模块需要进行的次数
 
     # GQDL
     token_num = 10
-    num_heads = 8
-    token_emb_size = 256
-    # output : 10 * 96
+    num_heads = 4
+    token_emb_size = 128
+    # output : 10 * 128 : [batch_size, 128, 10]
 
 
     # Video part
-
+    # because of the complexity, i set most parameters in TSM_UResNet file directly
     #ResNet_front
     layers = None  # layers是[ , , , ]的四个参数的Tuple，表示4个部分的数量参数
+    num_frames = 8 # not use
+    # output size  = [batch_size, 512, 7,7]
 
     # ResNet_back     # 上采样不一定要这么死板，改成和音频能接上就行
-    up_paramter1 = [batch_size * 8, 512, 14, 14]
-    up_paramter2 = [batch_size * 8, 512, 28, 28]
-    up_paramter3 = [batch_size * 8, 512, 56, 56]
+
 
     #VMP_dataset
     root1 = None
@@ -73,10 +73,12 @@ class Hyperparameters():
     strategy2 = 'sparse'
 
     # MLP
-    n_feature = None
+    n_features1 = 512 * 28 * 28   # video
+    n_features2 = 128 * 10      # audio
+    n_features  = 2048
 
 
     # Loss
-    margin = None
-    bias = None
-    balance_parameter = None
+    margin = 1
+    bias = batch_size
+    balance_parameter = 0.8  # 先试试

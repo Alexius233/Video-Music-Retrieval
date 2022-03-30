@@ -71,7 +71,7 @@ def Audio_feature_extractionder(indir, SR, N_FFT, HOP_LEN, DURA, is_train = True
             fv = logam(librosa.feature.chroma_cens(y=y, sr=SR, hop_length=HOP_LEN), ref_power=np.max)
             fv_total = np.vstack((fv_total, fv))
 
-            fv = logam(librosa.feature.melspectrogram(y=y, hop_length=HOP_LEN, n_fft=N_FFT, n_mels=96),
+            fv = logam(librosa.feature.melspectrogram(y=y, hop_length=HOP_LEN, n_fft=N_FFT, n_mels=128),
                        ref_power=np.max)   # stft -> mel
             # log的mel谱
             # hop_len 的作用是 : Sr * DURA / hop_len 影响wide, n_mel 的作用是 : 决定height,n_mel是多少height是多少

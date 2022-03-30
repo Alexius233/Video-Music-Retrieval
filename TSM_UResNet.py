@@ -5,14 +5,14 @@ import torch.utils.model_zoo as model_zoo
 from Hyperparameters import Hyperparameters as hp
 
 
-def tsm(tensor, duration, version='zero'):  # 默认补0， 可以改成补被顶掉的
-    # tensor [N*T, C, H, W]
+def tsm(tensor, channels, version='zero'):  # 默认补0， 可以改成补被顶掉的
+    # tensor [N, C*T , H, W]
     size = tensor.size()
-    tensor = tensor.view((-1, duration) + size[1:])  # 给了你第二个维度是什么，第一个自己算， 加上其他的截出来得得数组
+    tensor = tensor.view((-1, channels) + size[1:])  # 给了你第二个维度是什么，第一个自己算， 加上其他的截出来得得数组
     # tensor [N, T, C, H, W]
     pre_tensor, post_tensor, peri_tensor = tensor.split([size[1] // 4,
                                                          size[1] // 4,
-                                                         size[1] // 2], dim=2)
+                                                         size[1] // 2], dim=1)
     if version == 'zero':
         pre_tensor = F.pad(pre_tensor, (0, 0, 0, 0, 0, 0, 1, 0))[:, :-1, ...]
         post_tensor = F.pad(post_tensor, (0, 0, 0, 0, 0, 0, 0, 1))[:, 1:, ...]
@@ -24,8 +24,8 @@ def tsm(tensor, duration, version='zero'):  # 默认补0， 可以改成补被�
     else:
         raise ValueError('Unknown TSM version: {}'.format(version))
 
-    out = torch.cat((pre_tensor, post_tensor, peri_tensor), dim=2).view(size[0], size[1] * size[2], size[3],
-                                                                        size[4])  # 拼回去
+    out = torch.cat((pre_tensor, post_tensor, peri_tensor), dim=1).view(size[0], size[1] * size[2], size[3], size[4])  # 拼回去
+    # tensor [N, C*T , H, W]
     return out
 
 
@@ -69,7 +69,7 @@ class BasicBlock(nn.Module):  # 2个3 * 3 conv 模块
     def forward(self, x):
         identity = x
 
-        out = tsm(x, 8, 'zero')
+        out = tsm(x, 3, 'zero')
 
         out = self.conv1(out)
         out = self.bn1(out)
@@ -109,7 +109,7 @@ class Bottleneck(nn.Module):  # 1*1conv + 3*3conv + 1*1conv 模块
     def forward(self, x):
         identity = x
 
-        out = tsm(x, 8, 'zero')
+        out = tsm(x, 3, 'zero')
         out = self.conv1(out)
         out = self.bn1(out)
         out = self.relu(out)
@@ -132,23 +132,26 @@ class Bottleneck(nn.Module):  # 1*1conv + 3*3conv + 1*1conv 模块
 
 class ResNet_front(nn.Module):  # 输入的图像可以随机遮挡，增强rubust
 
-    def __init__(self, block,layers, zero_init_residual=False):  # layers是[ , , , ]的四个参数的Tuple，表示4个部分的数量参数
+    def __init__(self, block, layers, zero_init_residual=False):  # layers是[ , , , ]的四个参数的Tuple，表示4个部分的数量参数
         super(ResNet_front, self).__init__()
 
         self.inplanes = 64
         # 7*7conv + 3*3maxpool
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        self.conv1 = nn.Conv2d(3*8, 128, kernel_size=7, stride=2, padding=3, bias=False)
+                       #Conv2d(in_channel, out_channel, kernel_size, stride=1, padding=0, dilation=1,
+        #                      groups=1, bias=True, padding_mode='zeros', device=None, dtype=None)
         self.bn1 = nn.BatchNorm2d(64)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.midconv1 = nn.Conv2d(2048, 512, stride=1)
 
-        self.layer1 = self._make_layer(block, 64,  layers[0])
-        self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
-        self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
-        self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
+        self.layer1 = self._make_layer(block, 128,  layers[0])
+        self.layer2 = self._make_layer(block, 256, layers[1], stride=2)
+        self.layer3 = self._make_layer(block, 512, layers[2], stride=2)
+        self.layer4 = self._make_layer(block, 1024, layers[3], stride=2)
 
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+
+        self.finalconv = nn.Conv2d(1024, 512, kernel_size=3, stride=2, padding=1)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -191,13 +194,14 @@ class ResNet_front(nn.Module):  # 输入的图像可以随机遮挡，增强rubu
         x = self.maxpool(x)
 
         x = self.layer1(x)
-        y1 = x
+        y1 = x   # 56*56*128
         x = self.layer2(x)
-        y2 = x
+        y2 = x   # 28*28*256
         x = self.layer3(x)
-        y3 = x
+        y3 = x   # 14*14*512
         x = self.layer4(x)
-        x = self.midconv1(x)
+        x = self.finalconv(x)
+
 
         # x = self.avgpool(x)
         # x = x.view(x.size(0), -1)
@@ -211,43 +215,39 @@ def StepConv(num_channels, stride, padding):
                      padding=padding, bias=False)
 
 
-class ResNet_back(nn.Module):  # 写的是resnet-50
+class ResNet_back(nn.Module):  # 写的是resnet-34
     def __init__(self):  # layers是[ , , , ]的四个参数的Tuple，表示4个部分的数量参数
         super(ResNet_back, self).__init__()
 
         self.tor = 1e-4
 
-        self.y1 = hp.up_paramter1
-        self.y2 = hp.up_paramter2
-        self.y3 = hp.up_paramter3
         self.params_w = []  # nn.ParameterList([nn.Parameter(torch.randn(size))
         self.relu = nn.ReLU()
-
         self.upsample = F.upsample
 
-    def upsampling(self,_input, pre, stride, padding, tor):
+    def upsampling(self,_input, pre, in_channels, out_channels, tor):
         size = _input.size()
-        _input = F.upsample((size[0], size[1], size[2] * 2, size[3] * 2), mode='nearest')
+        _input = self.upsample((size[0], size[1], size[2] * 2, size[3] * 2), mode='nearest')
 
         out = []
         w1 = nn.Parameter(torch.randn(size))
-        w1 = F.relu(w1)
+        w1 = self.relu(w1)
         self.params_w = nn.ParameterList(w1)
 
         w2 = nn.Parameter(torch.randn(size))
-        w2 = F.relu(w2)
+        w2 = self.relu(w2)
         self.params_w = nn.ParameterList(w2)
 
         out = ((w1 * _input) + (w2 * pre)) / (w1 + w2 + tor)
-        out = StepConv(size[2], stride, padding)
+        out = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=2, padding=1, bias=False)
 
         return out
 
-    def forward(self, x):
-        # size = [N*T, C, H, W]
-        x = self.upsample(x, self.y1, 1, mode='nearest')
-        x = self.upsample(x, self.y2, 1, mode='nearest')
-        x = self.upsample(x, self.y3, 1, mode='nearest')
+    def forward(self, x, y1, y2, y3):
+        # size = [N, C*T, H, W]
+        x = self.upsampling(x, y1, 128, 512, self.tor)
+        x = self.upsampling(x, y2, 256, 512, self.tor)
+        # x = self.upsampling(x, y3, 512, 512, self.tor)
 
         return x
 

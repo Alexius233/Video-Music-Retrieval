@@ -218,9 +218,6 @@ def main(log_dir,dataset_size):
 
 
 
-
-
-
 if __name__ == '__main__':  # 训练时时候用命令行来启动，argv是在命令行输入的三个参数
     argv = sys.argv
     log_number = int(argv[1])
