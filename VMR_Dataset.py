@@ -52,10 +52,19 @@ def load_rgb_frames(image_dir, fps, strategy, is_train = True, start = 1):
                 j = j + int(0.5 * fps)
                 frames.append(img)
 
-    # sparse： 均匀取, 9张
+    # sparse： 均匀取, 8张
     if strategy == 'sparse':
-        for i in range(start, start + fps):
-            img = cv2.imread(os.path.join(image_dir, str(i).zfill(6) + '.jpg'))[:, :, [2, 1, 0]]  # 某种转置，方便数据后续转成需要的格式
+        size = len(os.listdir(image_dir)) - 0.5 * fps
+        gap = size / 8
+        count = 0
+        number = 0.25 * fps
+        while count <= 9:
+            if count == 9:
+                count = 0
+                number = 0.25 * fps
+                break
+
+            img = cv2.imread(os.path.join(image_dir, str(number).zfill(6) + '.jpg'))[:, :, [2, 1, 0]]  # 某种转置，方便数据后续转成需要的格式
             w, h, c = img.shape
             if w < 226 or h < 226:
                 d = 226. - min(w, h)
@@ -63,6 +72,10 @@ def load_rgb_frames(image_dir, fps, strategy, is_train = True, start = 1):
                 img = cv2.resize(img, dsize=(0, 0), fx=sc, fy=sc)
             img = (img / 255.) * 2 - 1
             frames.append(img)
+
+            count += 1
+            number += gap
+
 
     if is_train:
         return np.asarray(frames, dtype=np.float32)
