@@ -58,7 +58,8 @@ def load_rgb_frames(image_dir, fps, strategy, is_train = True, start = 1):
         gap = size / 8
         count = 0
         number = 0.25 * fps
-        while count <= 9:
+
+        while count <= 8:
             if count == 9:
                 count = 0
                 number = 0.25 * fps
