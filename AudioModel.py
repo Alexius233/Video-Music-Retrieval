@@ -1,4 +1,3 @@
-
 import torch.nn as nn
 from WFN import WPN
 from GQDL import GQDL
@@ -20,7 +19,7 @@ class Audiomodel(nn.Module):
 
         self.WFN = WPN(dropout)
         self.GQDL = GQDL()
-        self.Vice = Vice()
+        self.Vice = Vice(123) # 还没确定，记得改
         self.dropout = dropout
 
         self.Bottleneck1 = nn.Conv1d(hp.out2pool, hp.af_dim, kernel_size=1, stride=1)
@@ -30,7 +29,7 @@ class Audiomodel(nn.Module):
             self.Bottleneck2,
         )
 
-    def forward(self, input):
+    def forward(self, input, supplement_featuresize):
 
         Specinput, supplement = input
         mid_feature = self.WFN(Specinput)

@@ -2,9 +2,9 @@ import torch.nn as nn
 from Hyperparameters import Hyperparameters as hp
 
 class vice_audiomodel(nn.Module):
-    def __init__(self):
+    def __init__(self,nfeature):
         super(vice_audiomodel, self).__init__()
-        self.nfeature = []
+        self.nfeature = nfeature
 
         self.vice_net = nn.Sequential(
             nn.Linear(self.nfeature, hp.supplement_transform_features, bias=False),

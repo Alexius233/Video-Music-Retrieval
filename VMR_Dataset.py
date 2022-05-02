@@ -30,27 +30,38 @@ def video_to_tensor(pic):
 
 def load_rgb_frames(image_dir, fps, strategy, is_train = True, start = 1):
 
-    frames = []
+    frames_sparse = []
+    frames_intensive = []
     video_name = [image_dir]
 
     fps = int(fps)  # 读fps
 
     count = 0
-    # 策略待定，随便写的
-    # intensive: 一个时间段连续取好几个, 3 + 3 + 3
+
+    # intensive: 均匀抽64张
     if strategy == 'intensive':
-        for i in sorted(os.listdir(image_dir)):
-            count = count + 1
-            for j in range(count, count + int(1.5 * fps)):
-                img = cv2.imread(os.path.join(image_dir, str(i).zfill(6) + '.jpg'))[:, :,[2, 1, 0]]  # 某种转置，方便数据后续转成需要的格式
-                w, h, c = img.shape
-                if w < 226 or h < 226:
-                    d = 226. - min(w, h)
-                    sc = 1 + d / min(w, h)
-                    img = cv2.resize(img, dsize=(0, 0), fx=sc, fy=sc)
-                img = (img / 255.) * 2 - 1
-                j = j + int(0.5 * fps)
-                frames.append(img)
+        size = len(os.listdir(image_dir)) - 0.1 * fps
+        gap = size / 64
+        count = 0
+        number = 0.05 * fps
+
+        while count <= 64:
+            if count == 8:
+                count = 0
+                number = 0.05 * fps
+                break
+
+            img = cv2.imread(os.path.join(image_dir, str(number).zfill(6) + '.jpg'))[:, :, [2, 1, 0]]  # 某种转置，方便数据后续转成需要的格式
+            w, h, c = img.shape
+            if w < 226 or h < 226:
+                d = 226. - min(w, h)
+                sc = 1 + d / min(w, h)
+                img = cv2.resize(img, dsize=(0, 0), fx=sc, fy=sc)
+            img = (img / 255.) * 2 - 1
+            frames_intensive.append(img)
+
+            count += 1
+            number += gap
 
     # sparse： 均匀取, 8张
     if strategy == 'sparse':
@@ -60,7 +71,7 @@ def load_rgb_frames(image_dir, fps, strategy, is_train = True, start = 1):
         number = 0.25 * fps
 
         while count <= 8:
-            if count == 9:
+            if count == 8:
                 count = 0
                 number = 0.25 * fps
                 break
@@ -72,17 +83,17 @@ def load_rgb_frames(image_dir, fps, strategy, is_train = True, start = 1):
                 sc = 1 + d / min(w, h)
                 img = cv2.resize(img, dsize=(0, 0), fx=sc, fy=sc)
             img = (img / 255.) * 2 - 1
-            frames.append(img)
+            frames_sparse.append(img)
 
             count += 1
             number += gap
 
 
     if is_train:
-        return np.asarray(frames, dtype=np.float32)
+        return np.asarray(frames_intensive, dtype=np.float32), np.asarray(frames_sparse, dtype=np.float32)
 
     else:
-        return np.asarray(frames, dtype=np.float32), video_name
+        return np.asarray(frames_intensive, dtype=np.float32), video_name
 
 def get_types_data(root, types, row):   # root: 数据集地址 ; types: train, test, valid
 

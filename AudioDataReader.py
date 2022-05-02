@@ -11,7 +11,7 @@ import librosa.display
 # n_mel = 96
 
 # hop_len 的作用是 : Sr * DURA / hop_len 影响wide, n_mel 的作用是 : 决定height,n_mel是多少height是多少
-            # n_fft : 似乎是影响了分贝数,特征的整体数值大小
+# n_fft : 似乎是影响了分贝数,特征的整体数值大小
 
 def Audio_feature_extractionder(indir, SR, N_FFT, HOP_LEN, DURA, is_train = True):
 
@@ -54,33 +54,32 @@ def Audio_feature_extractionder(indir, SR, N_FFT, HOP_LEN, DURA, is_train = True
         MelSpectrogram = []
         fv_total = []
 
+        fv_mel = logam(librosa.feature.melspectrogram(y=src, hop_length=HOP_LEN, n_fft=N_FFT, n_mels=128), ref_power=np.max)  # -> mel
+        MelSpectrogram = fv_mel
+
+        # 优先抽取log的mel谱
+        # hop_len 的作用是 : Sr * DURA / hop_len 影响wide, n_mel 的作用是 : 决定height,n_mel是多少height是多少
+        # n_fft : 似乎是影响了分贝数,特征的整体数值大小
+
         # for Spectral features
+        # 按顺序抽取 色度频率, 色能量归一化, mfcc, 质心, 频带宽度， roll-off frequency, n阶多项式系数, 过零率
         for i in range(2):
             if i == 0:
                 y = y_harmonic
             else:
                 y = y_percussive
 
-            fv = logam(librosa.feature.chroma_stft(y=y, sr=SR, hop_length=HOP_LEN, n_fft=N_FFT))  #  -> stft
+            fv = logam(librosa.feature.chroma_stft(y=y, sr=SR, hop_length=HOP_LEN, n_fft=N_FFT))  #  -> 色度频率
             if i == 0:
                 fv_total = fv
             else:
                 fv_total = fv
                 fv_total = np.vstack((fv_total, fv))
 
-            fv = logam(librosa.feature.chroma_cens(y=y, sr=SR, hop_length=HOP_LEN), ref_power=np.max)
+            fv = logam(librosa.feature.chroma_cens(y=y, sr=SR, hop_length=HOP_LEN), ref_power=np.max) #   -> 色能量归一化
             fv_total = np.vstack((fv_total, fv))
 
-            fv = logam(librosa.feature.melspectrogram(y=y, hop_length=HOP_LEN, n_fft=N_FFT, n_mels=128),
-                       ref_power=np.max)   # stft -> mel
-            # log的mel谱
-            # hop_len 的作用是 : Sr * DURA / hop_len 影响wide, n_mel 的作用是 : 决定height,n_mel是多少height是多少
-            # n_fft : 似乎是影响了分贝数,特征的整体数值大小
-
-            fv_total = np.vstack((fv_total, fv))
-            MelSpectrogram = fv_total
-
-            fv_mfcc = librosa.feature.mfcc(y=y, sr=SR, hop_length=HOP_LEN)
+            fv_mfcc = librosa.feature.mfcc(y=y, sr=SR, hop_length=HOP_LEN)   # —> mfcc
             fv = logam(fv_mfcc, ref_power=np.max)
             fv_total = np.vstack((fv_total, fv))
             fv = logam(librosa.feature.delta(fv_mfcc), ref_power=np.max)
@@ -91,7 +90,7 @@ def Audio_feature_extractionder(indir, SR, N_FFT, HOP_LEN, DURA, is_train = True
             fv = logam(librosa.feature.rms(y=y, hop_length=HOP_LEN), ref_power=np.max)
             fv_total = np.vstack((fv_total, fv))
 
-            fv = logam(librosa.feature.spectral_centroid(y=y, sr=SR, hop_length=HOP_LEN, n_fft=N_FFT), ref_power=np.max)
+            fv = logam(librosa.feature.spectral_centroid(y=y, sr=SR, hop_length=HOP_LEN, n_fft=N_FFT), ref_power=np.max)    # -> 质心
             fv_total = np.vstack((fv_total, fv))
 
             fv = logam(librosa.feature.spectral_bandwidth(y=y, sr=SR, hop_length=HOP_LEN, n_fft=N_FFT),
@@ -108,8 +107,7 @@ def Audio_feature_extractionder(indir, SR, N_FFT, HOP_LEN, DURA, is_train = True
                        ref_power=np.max)
             fv_total = np.vstack((fv_total, fv))
 
-            fv = logam(librosa.feature.zero_crossing_rate(y=y, hop_length=HOP_LEN, frame_length=N_FFT),
-                       ref_power=np.max)
+            fv = logam(librosa.feature.zero_crossing_rate(y=y, hop_length=HOP_LEN, frame_length=N_FFT), ref_power=np.max)   # -> 过零率
             fv_total = np.vstack((fv_total, fv))
 
 

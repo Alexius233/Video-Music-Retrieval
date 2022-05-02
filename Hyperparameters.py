@@ -47,6 +47,10 @@ class Hyperparameters():
     # 现在是 128 * 256
     Depth = 9     # WFN模块需要进行的次数
 
+    #Vice_audionet
+    supplement_transform_features = 256
+    af_dim = 64  # 尝试为压缩一半
+
     # GQDL
     token_num = 10
     num_heads = 4

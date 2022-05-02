@@ -52,57 +52,49 @@ class STL(nn.Module):
         self.embed = nn.Parameter(torch.FloatTensor(hp.token_num, hp.token_emb_size // hp.num_heads))
         d_q = hp.token_emb_size // 2
         d_k = hp.token_emb_size // hp.num_heads    # 这两个写着意义不明？ 进去linear维度变成了num_unit,也许是增强效果
-        # self.attention = MultiHeadAttention(hp.num_heads, d_model, d_q, d_v)
-        self.attention = MultiHeadAttention(query_dim=d_q, key_dim=d_k, num_units=hp.token_emb_size, num_heads=hp.num_heads)
+        self.size = [256, 128]
+        self.position = LearnedPositionEncoding(self.size)
+        #self.attention = MultiHeadAttention(query_dim=d_q, key_dim=d_k, num_units=hp.token_emb_size, num_heads=hp.num_heads)
+        self.attention = nn.MultiheadAttention(embed_dim=128, num_heads=hp.num_heads,vdim=d_k)
 
         nn.init.normal_(self.embed, mean=0, std=0.5)
 
     def forward(self, inputs):
+        # Q K V 初始化可能有问题
         N = inputs.size(0)
         query = inputs.unsqueeze(1)  # [N, 1, E//2]
         keys = F.tanh(self.embed).unsqueeze(0).expand(N, -1, -1)  # [N, token_num, E // num_heads]
-        Quantitative_Details = self.attention(query, keys)
+        value = F.tanh(self.embed).unsqueeze(0).expand(N, -1, -1)
+        Quantitative_Details = self.attention(query, keys, value)
 
         return Quantitative_Details
 
 
-class MultiHeadAttention(nn.Module):
-    '''
-    input:
-        query --- [N, T_q, query_dim]
-        key --- [N, T_k, key_dim]
-    output:
-        out --- [N, T_q, num_units]
-    '''
+# 不可学习的位置编码
+class PositionalEncoding(nn.Module):
+    """位置编码"""
+    def __init__(self, num_hiddens, dropout, max_len=1000):
+        super(PositionalEncoding, self).__init__()
+        self.dropout = nn.Dropout(dropout)
+        # 创建⼀个⾜够⻓的P
+        self.P = torch.zeros((1, max_len, num_hiddens))
+        X = torch.arange(max_len, dtype=torch.float32).reshape(
+                        -1, 1) / torch.pow(10000, torch.arange(
+                         0, num_hiddens, 2, dtype=torch.float32) / num_hiddens)
+        self.P[:, :, 0::2] = torch.sin(X)
+        self.P[:, :, 1::2] = torch.cos(X)
+    def forward(self, X):
+        X = X + self.P[:, :X.shape[1], :].to(X.device)
+        return self.dropout(X)
 
-    def __init__(self, query_dim, key_dim, num_units, num_heads):
+# 可学习的
+class LearnedPositionEncoding(nn.Embedding):
+    def __init__(self, embedding_num, dropout=0, max_len=1000):
+        super().__init__(max_len, embedding_num)
+        self.dropout = nn.Dropout(p=dropout)
 
-        super().__init__()
-        self.num_units = num_units
-        self.num_heads = num_heads
-        self.key_dim = key_dim
+    def forward(self, x):
+        weight = self.weight.data.unsqueeze(1)
+        x = x + weight[:x.size(1)]
+        return self.dropout(x)
 
-        self.W_query = nn.Linear(in_features=query_dim, out_features=num_units, bias=False)
-        self.W_key = nn.Linear(in_features=key_dim, out_features=num_units, bias=False)
-        self.W_value = nn.Linear(in_features=key_dim, out_features=num_units, bias=False)
-
-    def forward(self, query, key):
-        querys = self.W_query(query)  # [N, T_q, num_units]
-        keys = self.W_key(key)  # [N, T_k, num_units]
-        values = self.W_value(key)
-
-        split_size = self.num_units // self.num_heads
-        querys = torch.stack(torch.split(querys, split_size, dim=2), dim=0)  # [h, N, T_q, num_units/h]
-        keys = torch.stack(torch.split(keys, split_size, dim=2), dim=0)  # [h, N, T_k, num_units/h]
-        values = torch.stack(torch.split(values, split_size, dim=2), dim=0)  # [h, N, T_k, num_units/h]
-
-        # score = softmax(QK^T / (d_k ** 0.5))
-        scores = torch.matmul(querys, keys.transpose(2, 3))  # [h, N, T_q, T_k]
-        scores = scores / (self.key_dim ** 0.5)
-        scores = F.softmax(scores, dim=3)
-
-        # out = score * V
-        out = torch.matmul(scores, values)  # [h, N, T_q, num_units/h]
-        out = torch.cat(torch.split(out, 1, dim=0), dim=3).squeeze(0)  # [N, T_q, num_units]
-
-        return out

@@ -29,8 +29,8 @@ class WPN(nn.Module):
 class WPNBlock(nn.Module):   # 瓶颈层
     def __init__(self, n_inputs, n_outputs, n_out2pool, dropout=0.3):
         super(WPNBlock, self).__init__()
-        self.Bottleneck1 = nn.Conv1d(n_inputs, n_outputs, stride=1)
-        self.Bottleneck2 = nn.Conv1d(n_outputs, n_inputs, stride=1)
+        self.Bottleneck1 = nn.Conv1d(n_inputs, n_outputs, kernel_size=1, stride=1)
+        self.Bottleneck2 = nn.Conv1d(n_outputs, n_inputs, kernel_size=1, stride=1)
 
         self.nn.LayerNorm()
         self.relu = nn.ReLU()

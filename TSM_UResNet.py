@@ -29,8 +29,7 @@ def tsm(tensor, channels, version='zero'):  # 默认补0， 可以改成补被�
     return out
 
 
-__all__ = ['ResNet_front', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
-           'resnet152']
+__all__ = ['resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152']
 
 model_urls = {
     'resnet18': 'https://download.pytorch.org/models/resnet18-5c106cde.pth',
@@ -130,10 +129,10 @@ class Bottleneck(nn.Module):  # 1*1conv + 3*3conv + 1*1conv 模块
         return out
 
 
-class ResNet_front(nn.Module):  # 输入的图像可以随机遮挡，增强rubust
+class ResNet(nn.Module):  # 输入的图像可以随机遮挡，增强rubust
 
     def __init__(self, block, layers, zero_init_residual=False):  # layers是[ , , , ]的四个参数的Tuple，表示4个部分的数量参数
-        super(ResNet_front, self).__init__()
+        super(ResNet, self).__init__()
 
         self.inplanes = 64
         # 7*7conv + 3*3maxpool
@@ -194,11 +193,11 @@ class ResNet_front(nn.Module):  # 输入的图像可以随机遮挡，增强rubu
         x = self.maxpool(x)
 
         x = self.layer1(x)
-        y1 = x   # 56*56*128
+        #y1 = x   # 56*56*128
         x = self.layer2(x)
-        y2 = x   # 28*28*256
+        #y2 = x   # 28*28*256
         x = self.layer3(x)
-        y3 = x   # 14*14*512
+        #y3 = x   # 14*14*512
         x = self.layer4(x)
         x = self.finalconv(x)
 
@@ -206,7 +205,7 @@ class ResNet_front(nn.Module):  # 输入的图像可以随机遮挡，增强rubu
         # x = self.avgpool(x)
         # x = x.view(x.size(0), -1)
 
-        return x, y1, y2, y3  # 传回来4个上采样的feature
+        return x
     # stride=1
 
 def StepConv(num_channels, stride, padding):
@@ -215,48 +214,14 @@ def StepConv(num_channels, stride, padding):
                      padding=padding, bias=False)
 
 
-class ResNet_back(nn.Module):  # 写的是resnet-34
-    def __init__(self):  # layers是[ , , , ]的四个参数的Tuple，表示4个部分的数量参数
-        super(ResNet_back, self).__init__()
 
-        self.tor = 1e-4
-
-        self.params_w = []  # nn.ParameterList([nn.Parameter(torch.randn(size))
-        self.relu = nn.ReLU()
-        self.upsample = F.upsample
-
-    def upsampling(self,_input, pre, in_channels, out_channels, tor):
-        size = _input.size()
-        _input = self.upsample((size[0], size[1], size[2] * 2, size[3] * 2), mode='nearest')
-
-        out = []
-        w1 = nn.Parameter(torch.randn(size))
-        w1 = self.relu(w1)
-        self.params_w = nn.ParameterList(w1)
-
-        w2 = nn.Parameter(torch.randn(size))
-        w2 = self.relu(w2)
-        self.params_w = nn.ParameterList(w2)
-
-        out = ((w1 * _input) + (w2 * pre)) / (w1 + w2 + tor)
-        out = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=2, padding=1, bias=False)
-
-        return out
-
-    def forward(self, x, y1, y2, y3):
-        # size = [N, C*T, H, W]
-        x = self.upsampling(x, y1, 128, 512, self.tor)
-        x = self.upsampling(x, y2, 256, 512, self.tor)
-        # x = self.upsampling(x, y3, 512, 512, self.tor)
-
-        return x
 
 def resnet18(pretrained=False, **kwargs):
     """Constructs a ResNet-18 model.
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    model = ResNet_front(BasicBlock, [2, 2, 2, 2], **kwargs)
+    model = ResNet(BasicBlock, [2, 2, 2, 2], **kwargs)
     if pretrained:
         model.load_state_dict(model_zoo.load_url(model_urls['resnet18']))
     return model
@@ -267,7 +232,7 @@ def resnet34(pretrained=False, **kwargs):
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    model = ResNet_front(BasicBlock, [3, 4, 6, 3], **kwargs)
+    model = ResNet(BasicBlock, [3, 4, 6, 3], **kwargs)
     if pretrained:
         model.load_state_dict(model_zoo.load_url(model_urls['resnet34']))
     return model
@@ -278,7 +243,7 @@ def resnet50(pretrained=False, **kwargs):
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    model = ResNet_front(Bottleneck, [3, 4, 6, 3], **kwargs)
+    model = ResNet(Bottleneck, [3, 4, 6, 3], **kwargs)
     if pretrained:
         model.load_state_dict(model_zoo.load_url(model_urls['resnet50']))
     return model
@@ -289,7 +254,7 @@ def resnet101(pretrained=False, **kwargs):
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    model = ResNet_front(Bottleneck, [3, 4, 23, 3], **kwargs)
+    model = ResNet(Bottleneck, [3, 4, 23, 3], **kwargs)
     if pretrained:
         model.load_state_dict(model_zoo.load_url(model_urls['resnet101']))
     return model
@@ -300,7 +265,7 @@ def resnet152(pretrained=False, **kwargs):
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    model = ResNet_front(Bottleneck, [3, 8, 36, 3], **kwargs)
+    model = ResNet(Bottleneck, [3, 8, 36, 3], **kwargs)
     if pretrained:
         model.load_state_dict(model_zoo.load_url(model_urls['resnet152']))
     return model
