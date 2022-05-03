@@ -43,14 +43,14 @@ class Weight(torch.nn.Module):
         self.key_conv1x1 = create_conv(self.rnn_input_size, self.key_query_dim)
         self.key_conv1x1.apply(weights_init)
 
-    def forward(self, Visionfeatures, Audiofeatures, voutputsize, indexingsize, feature_masks):  # feature_masks可能是某个超参数
+    def forward(self, Visionfeatures, Audiofeatures, voutputsize, feature_masks):  # feature_masks可能是某个超参数
 
         vsize = Visionfeatures.size()
         Visionfeatures = Visionfeatures.view(vsize[0], vsize[1], -1)
-        Visionfeature = mlp(Visionfeatures, voutputsize)
+        Visionfeature = mlp(Visionfeatures, Visionfeatures.size(2))
 
         features = torch.cat((Visionfeature, Audiofeatures), dim=1)
-
+        indexingsize = Visionfeatures.size(2)+Audiofeatures(2)
         features = mlp(features, indexingsize)
 
         self.feature_keys = self.key_conv1x1(features.permute(0, 2, 1).unsqueeze(-1)).squeeze(-1)

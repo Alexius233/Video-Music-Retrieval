@@ -31,7 +31,7 @@ class TotalModel(nn.Module):
 
         if self.is_train == True :
             v_g, v_l = self.videoencoder(video)
-            v,a = self.index(v_l, a, hp.voutputsize, hp.indexingsize, hp.feature_masks) # 还没写，记得在hp里写
+            v,a = self.index(v_l, a, hp.feature_masks) # 还没写，记得在hp里写
 
             v_g = self.projector(v_g)
             v_l = self.projector(v_l)
@@ -40,7 +40,7 @@ class TotalModel(nn.Module):
             return v_g, v_l, a
         elif self.is_train == False :
             v_l = self.videoencoder(video)
-            v, a = self.index(v_l, a, hp.voutputsize, hp.indexingsize, hp.feature_masks)  # 还没写，记得在hp里写
+            v, a = self.index(v_l, a, hp.feature_masks)  # 还没写，记得在hp里写
 
             v = self.projector(v)
             a = self.projector(a)
