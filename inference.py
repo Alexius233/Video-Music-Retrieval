@@ -5,7 +5,8 @@ from torch.utils.data import DataLoader
 from TotalModel import TotalModel
 from Hyperparameters import Hyperparameters as hp
 from VMR_Dataset import VMR_Dataset
-from videotransforms import Transforms_for_test
+from videotransforms import Transforms
+from ViewGenerator import ContrastiveLearningViewGenerator as CLV
 
 """
 Notation:  dataset里要写新的传递inference数据的接口
@@ -112,7 +113,9 @@ def assess(log_dir, num_epoch, load = True):  # 综合的： 读取，计算，�
     test_dataset = VMR_Dataset(hp.root2,
                                 hp.start,
                                 hp.strategy1,
-                                Transforms_for_test(224),
+                                transforms=CLV(Transforms(224),
+                                               Transforms(96),
+                                                n_views = 1),
                                 row=slice(hp.eval_size, None))
 
     test_loader = DataLoader(dataset=test_dataset,

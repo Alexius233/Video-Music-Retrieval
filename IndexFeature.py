@@ -64,7 +64,7 @@ class Weight(torch.nn.Module):
         normalized_query_scores = self.softmax(scores)
         # weighted sum of feature banks to generate c_next
         #audio_weight = torch.bmm(feature_banks.permute(0, 2, 1), normalized_query_scores.unsqueeze(-1)).squeeze(-1)
-        Indexed_feature_v = torch.bmm(Visionfeatures, normalized_query_scores)
-        Indexed_feature_a = torch.bmm(Audiofeatures, normalized_query_scores)
+        Indexed_feature_v = torch.bmm(Visionfeatures, normalized_query_scores[0:Visionfeatures.size()])
+        Indexed_feature_a = torch.bmm(Audiofeatures, normalized_query_scores[Audiofeatures.size():])
 
         return Indexed_feature_v , Indexed_feature_a

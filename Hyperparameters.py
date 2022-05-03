@@ -73,8 +73,8 @@ class Hyperparameters():
     root2 = None
     root3 = None
     start = 1
-    strategy1 = 'intensive'  # 目前看来用不着
-    strategy2 = 'sparse'
+    strategy1 = 'intensive'
+    strategy2 = 'sparse'     # 目前作废
 
     # MLP
     n_features1 = 512 * 28 * 28   # video

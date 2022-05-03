@@ -9,7 +9,7 @@ class TotalModel(nn.Module):
     def __init__(self, dropout, is_train = True):
         super(TotalModel, self).__init__()
 
-        self.videoencoder = VMo()
+        self.videoencoder = VMo(is_train)
         self.audioencoder = AMo(dropout=dropout)
         self.index = Weight()
         self.is_train = is_train
@@ -25,10 +25,10 @@ class TotalModel(nn.Module):
 
         return tensor
 
-    def forward(self, mels, video):
+    def forward(self, mels, supplement, video):
 
         v = self.videoencoder(video)
-        a = self.audioencoder(mels)
+        a = self.audioencoder(mels, supplement)
 
         v,a = self.index(v, a, hp.voutputsize, hp.indexingsize, hp.feature_masks) # 还没写，记得在hp里写
 

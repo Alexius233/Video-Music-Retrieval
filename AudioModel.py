@@ -29,11 +29,11 @@ class Audiomodel(nn.Module):
             self.Bottleneck2,
         )
 
-    def forward(self, input, supplement_featuresize):
+    def forward(self, input, supplement_data):
 
         Specinput, supplement = input
         mid_feature = self.WFN(Specinput)
-        supplement_feature = self.Vice(supplement)
+        supplement_feature = self.Vice(supplement_data)
         #原始版融合策略：先加再一个卷积
         mid_feature = mid_feature + supplement_feature
         mid_feature = self.net(mid_feature)

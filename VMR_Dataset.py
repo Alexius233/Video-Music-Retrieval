@@ -1,10 +1,10 @@
 import torch
 import torch.utils.data as data_utl
 from torch.utils.data.dataloader import default_collate
+from ViewGenerator import ContrastiveLearningViewGenerator as CLV
 
 import numpy as np
 import csv
-
 import os
 import os.path
 
@@ -63,7 +63,7 @@ def load_rgb_frames(image_dir, fps, strategy, is_train = True, start = 1):
             count += 1
             number += gap
 
-    # sparse： 均匀取, 8张
+    # sparse： 均匀取, 8张 , 作废！！！！
     if strategy == 'sparse':
         size = len(os.listdir(image_dir)) - 0.5 * fps
         gap = size / 8
@@ -121,7 +121,7 @@ def get_types_data(root, types, row):   # root: 数据集地址 ; types: train, 
 
 class VMR_Dataset(data_utl.Dataset):
 
-    def __init__(self,root, start, strategy, is_train = True, transforms=None, row=slice(0, None)):
+    def __init__(self,root, start, strategy, transforms, is_train = True, row=slice(0, None)):
 
         #self.data = load_rgb_frames(image_dir, vid, start, num)
 
@@ -159,7 +159,7 @@ class VMR_Dataset(data_utl.Dataset):
             #fv_var = torch.from_numpy(fv_var)
             #fv_amax = torch.from_numpy(fv_amax)
 
-            out['video'] = imgs
+            out['video1'],  out['video2'] = self.transforms(imgs)
             out['mel']   = spe
             out['fv_feature'] = fv_feature
 
@@ -186,7 +186,7 @@ class VMR_Dataset(data_utl.Dataset):
             fv_feature.append(fv_amax)
             fv_feature = np.asarray(fv_feature, dtype=np.float32)
             # it seems that it is a redundant code, but i'm too tired to fix
-            out['video'] = imgs
+            out['video'] = self.transforms(imgs)
             out['mel'] = spe
             out['fv_feature'] = fv_feature
             out['video_name'] = video_name
