@@ -120,14 +120,16 @@ class ContrastiveLoss(nn.Module):
 
 
 
-        return hp.balance_parameter * (- 1 / hp.bias * (sim_back_V + sim_back_A)) + (1 - hp.balance_parameter)
+        return - 1 / hp.bias * (sim_back_V + sim_back_A)
 
 class VideoLoss(nn.Module):
     def __init__(self):  # 假设默认num=32是batch_size
         super(VideoLoss, self).__init__()
         self.cos_sim = nn.CosineSimilarity(dim=1, eps=1e-18)
 
-    def forward(self, G_feature,L_feature):
+    def forward(self, feature):
+        G_feature = feature[0]
+        L_feature = feature[1]
         sim = self.cos_sim(G_feature, L_feature)
         return sim
 
@@ -135,10 +137,9 @@ class VideoLoss(nn.Module):
 class TotalLoss(nn.Module):
     def __init__(self):
         super(TotalLoss, self).__init__()
-        self.V_weight=0.3#暂定
-        self.C_weight=0.7#暂定
+        self.V_weight = 0.3#暂定
+        self.C_weight = 0.7#暂定
 
     def forward(self, V, C):
 
-        return V*self.V_weight+C*self.C_weight
-
+        return V * self.V_weight + C * self.C_weight

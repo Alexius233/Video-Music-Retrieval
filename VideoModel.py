@@ -14,7 +14,7 @@ class VideoModel(nn.Module):
 
     def forward(self, input):
 
-        if self.is_train == 'True' :
+        if self.is_train == True :
             Videoinput1, Videoinput2 = input[0], input[1]
             global_feature  = self.ResNet_G(Videoinput1)
             local_feature = self.ResNet_L(Videoinput2)

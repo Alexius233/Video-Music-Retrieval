@@ -6,7 +6,7 @@ from IndexFeature import Weight
 from Hyperparameters import Hyperparameters as hp
 
 class TotalModel(nn.Module):
-    def __init__(self, dropout, is_train = True):
+    def __init__(self, is_train = True, dropout = 0):
         super(TotalModel, self).__init__()
 
         self.videoencoder = VMo(is_train)
@@ -27,12 +27,22 @@ class TotalModel(nn.Module):
 
     def forward(self, mels, supplement, video):
 
-        v = self.videoencoder(video)
         a = self.audioencoder(mels, supplement)
 
-        v,a = self.index(v, a, hp.voutputsize, hp.indexingsize, hp.feature_masks) # 还没写，记得在hp里写
+        if self.is_train == True :
+            v_g, v_l = self.videoencoder(video)
+            v,a = self.index(v_l, a, hp.voutputsize, hp.indexingsize, hp.feature_masks) # 还没写，记得在hp里写
 
-        v = self.projector(v)
-        a = self.projector(a)
+            v_g = self.projector(v_g)
+            v_l = self.projector(v_l)
+            a = self.projector(a)
 
-        return v, a
+            return v_g, v_l, a
+        elif self.is_train == False :
+            v_l = self.videoencoder(video)
+            v, a = self.index(v_l, a, hp.voutputsize, hp.indexingsize, hp.feature_masks)  # 还没写，记得在hp里写
+
+            v = self.projector(v)
+            a = self.projector(a)
+
+            return v, a

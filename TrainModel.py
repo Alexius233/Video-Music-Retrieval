@@ -8,7 +8,7 @@ import sys
 import torch.optim as optim
 from torch.nn import DataParallel
 from TotalModel import TotalModel
-from Loss_Function import ContrastiveLoss
+from Loss_Function import ContrastiveLoss, VideoLoss, TotalLoss
 from time import time
 from videotransforms import Transforms
 from ViewGenerator import ContrastiveLearningViewGenerator as CLV
@@ -61,7 +61,9 @@ def train(log_dir, dataset_size, device, writer, start_epoch=0):
             if torch.is_tensor(v):
                 state[k] = v.to(device)
 
-    criterion = ContrastiveLoss()  # Loss
+    sub_critertion1 = VideoLoss()
+    sub_critertion2 = ContrastiveLoss()
+    criterion = TotalLoss()  # Loss
 
     # load data
     if dataset_size is None:
@@ -69,16 +71,16 @@ def train(log_dir, dataset_size, device, writer, start_epoch=0):
                                     hp.start,
                                     hp.strategy1,
                                     transforms=CLV(Transforms(224),
-                                                  Transforms(96),
-                                                  n_views = 2),
+                                                   Transforms(96),
+                                                   n_views = 2),
                                     row=slice(hp.eval_size, None))
     else:
         train_dataset = VMR_Dataset(hp.root1,
                                     hp.start,
                                     hp.strategy1,
                                     transforms=CLV(Transforms(224),
-                                                  Transforms(96),
-                                                  n_views = 2),
+                                                   Transforms(96),
+                                                   n_views = 2),
                                     row=slice(hp.eval_size, hp.eval_size + dataset_size))
 
     train_loader = DataLoader(dataset=train_dataset,
@@ -107,16 +109,15 @@ def train(log_dir, dataset_size, device, writer, start_epoch=0):
             frames1 = batch['videos1'].to(device)   # global
             frames2 = batch['videos2'].to(device)   # local
             frames = torch.stack([frames1, frames2], dim=0)
-            fv_feature = batch['fv_feature'].to(device)  # 三个手工特征
+            supplement = batch['fv_feature'].to(device)  # 三个手工特征
 
             optimizer.zero_grad()
 
-            video_feature_G, video_feature_L, audio_feature= model(mels, frames)
+            video_feature_G, video_feature_L, audio_feature= model(mels,supplement, frames)
 
-            # !!!!!!!!!!!!!!!!!!!!!!!!改！！！！！！！！！！！！！！！！！！！！！！！！！
-            #
-            #
-            loss = criterion(video_feature_L, audio_feature)
+            vloss = sub_critertion1(video_feature_L, video_feature_G)
+            closs = sub_critertion2(video_feature_L, audio_feature)
+            loss = criterion(vloss, closs)
             loss_epoch += loss
             loss.backward()
 

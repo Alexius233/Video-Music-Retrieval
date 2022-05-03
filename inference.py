@@ -26,14 +26,14 @@ def cosine_sim(im, s):          # 已修改，无问题
 
     return sim
 
-def forward_embed(video_data, audio_data, model):   # 调用模型，和得到计算结果
+def forward_embed(video_data, audio_data, supplement, model):   # 调用模型，和得到计算结果
 
-    video_embeds,audio_embeds = model(video_data, audio_data)
+    video_embeds,audio_embeds = model(audio_data, supplement,video_data)
 
     return video_embeds,audio_embeds
 
 
-def generate_scores(self, **kwargs):     # 生成分数的核心就是 cos相似度   # 已修改，无问题
+def generate_scores( **kwargs):     # 生成分数的核心就是 cos相似度   # 已修改，无问题
     # compute image-sentence similarity
     vid_embeds = kwargs['vid_embeds']
     adu_embeds = kwargs['aud_embeds']
@@ -52,7 +52,8 @@ def evaluate_scores(dataloader, model):  # tst_reader是个dataloader ，       
         audio_names = batch['audio_name']
         video_data = batch['video']
         audio_data = batch['mel']
-        video_feature, audio_feature = forward_embed(video_data, audio_data, model)
+        supplement = batch['fv_feature']
+        video_feature, audio_feature = forward_embed(video_data, audio_data, supplement, model)
         embed = {'vid_embeds':video_feature,'aud_embeds':audio_feature}
 
         score = generate_scores(**embed)  # video 对 audio 的score
@@ -108,14 +109,14 @@ def evaluate(dataloader, model):     #  单一计算分数的函数   ，  # 已
 
 def assess(log_dir, num_epoch, load = True):  # 综合的： 读取，计算，写入   # 未修改完全
 
-    model = TotalModel(hp.n_feature, 0, is_train=False).cuda()  # 无dropout
+    model = TotalModel(is_train=False).cuda()  # 无dropout
 
     test_dataset = VMR_Dataset(hp.root2,
                                 hp.start,
                                 hp.strategy1,
                                 transforms=CLV(Transforms(224),
                                                Transforms(96),
-                                                n_views = 1),
+                                               n_views = 1),
                                 row=slice(hp.eval_size, None))
 
     test_loader = DataLoader(dataset=test_dataset,

@@ -48,7 +48,11 @@ for label in sorted(labels):
 
                 print(next_root_video)
                 vc = cv2.VideoCapture(next_root_video)  # 读入视频
-                fps = vc.get(round(cv2.CAP_PROP_FPS))  # 读取码率，每秒几帧
+
+                fps = vc.get(int(cv2.CAP_PROP_FPS))  # 读取码率，每秒几帧
+                size = vc.get(int(cv2.CAP_PROP_FRAME_COUNT))  # 长度，总帧数
+                size = size - 0.5 * fps
+                gap = size / 64          # 设置为抽64帧
 
                 fv = open(os.path.join(dir, "videofilename.txt"), "a")   # 建立txt
                 fv.write(os.path.join(os.path.join(video_dir, root), count))   # 写入新地址 video/i.mp4
@@ -57,19 +61,22 @@ for label in sorted(labels):
                 fv.write('\n')
                 fv.close()
 
-                c = 0
+                c = int(0.25 * fps)  # 开始设置在0.25fps
+                number = 0
                 rval = vc.isOpened()
                 print(rval)
 
                 while rval:  # 循环读取视频帧
-                    c = c + 1  #
+
+                    number += 1
 
                     rval, frame = vc.read()
 
-                    if rval:
-                        pic_root = os.path.join(os.path.join(video_dir, count), str(c) + '.png')
+                    if rval & (number == c):
+                        pic_root = os.path.join(os.path.join(video_dir, count), str(number) + '.png')
                         cv2.imwrite(pic_root, frame)
                         cv2.waitKey(1)
+                        c = c + gap
 
                     else:
                         break
