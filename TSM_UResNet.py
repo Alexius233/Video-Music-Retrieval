@@ -131,26 +131,37 @@ class Bottleneck(nn.Module):  # 1*1conv + 3*3conv + 1*1conv 模块
 
 class ResNet(nn.Module):  # 输入的图像可以随机遮挡，增强rubust
 
-    def __init__(self, block, layers, zero_init_residual=False):  # layers是[ , , , ]的四个参数的Tuple，表示4个部分的数量参数
+    def __init__(self, block, layers, type, zero_init_residual=False):  # layers是[ , , , ]的四个参数的Tuple，表示4个部分的数量参数
         super(ResNet, self).__init__()
 
+        self.type = type
         self.inplanes = 64
         # 7*7conv + 3*3maxpool
-        self.conv1 = nn.Conv2d(3*8, 128, kernel_size=7, stride=2, padding=3, bias=False)
+        self.conv1 = nn.Conv2d(3*8, 64, kernel_size=7, stride=2, padding=3, bias=False)
                        #Conv2d(in_channel, out_channel, kernel_size, stride=1, padding=0, dilation=1,
         #                      groups=1, bias=True, padding_mode='zeros', device=None, dtype=None)
+        self.conv1 = nn.Conv2d(3 * 64, 64, kernel_size=7, stride=2, padding=3, bias=False)
+
         self.bn1 = nn.BatchNorm2d(64)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
-        self.layer1 = self._make_layer(block, 128,  layers[0])
-        self.layer2 = self._make_layer(block, 256, layers[1], stride=2)
-        self.layer3 = self._make_layer(block, 512, layers[2], stride=2)
-        self.layer4 = self._make_layer(block, 1024, layers[3], stride=2)
+        self.layer1 = self._make_layer(block, 256,  layers[0])
+        self.layer1_ = self._make_layer(block, 128, layers[0])
+
+        self.layer2 = self._make_layer(block, 512, layers[1], stride=2)
+        self.layer2_ = self._make_layer(block, 256, layers[1], stride=2)
+
+        self.layer3 = self._make_layer(block, 1024, layers[2], stride=2)
+        self.layer3_ = self._make_layer(block, 512, layers[2], stride=2)
+
+        self.layer4 = self._make_layer(block, 2048, layers[3], stride=2)
+        self.layer4_ = self._make_layer(block, 1024, layers[3], stride=2)
 
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
 
-        self.finalconv = nn.Conv2d(1024, 512, kernel_size=3, stride=2, padding=1)
+        self.finalconv = nn.Conv2d(2048, 1024, kernel_size=3, stride=2, padding=1)
+        self.finalconv_ = nn.Conv2d(1024, 512, kernel_size=3, stride=2, padding=1)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -187,20 +198,27 @@ class ResNet(nn.Module):  # 输入的图像可以随机遮挡，增强rubust
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        x = self.conv1(x)
-        x = self.bn1(x)
-        x = self.relu(x)
-        x = self.maxpool(x)
+        if self.type == 'global' :
+            x = self.conv1(x)
+            x = self.bn1(x)
+            x = self.relu(x)
+            x = self.maxpool(x)
+            x = self.layer1(x)
+            x = self.layer2(x)
+            x = self.layer3(x)
+            x = self.layer4(x)
+            x = self.finalconv(x)
 
-        x = self.layer1(x)
-        #y1 = x   # 56*56*128
-        x = self.layer2(x)
-        #y2 = x   # 28*28*256
-        x = self.layer3(x)
-        #y3 = x   # 14*14*512
-        x = self.layer4(x)
-        x = self.finalconv(x)
-
+        if self.type == 'local':
+            x = self.conv1_(x)
+            x = self.bn1_(x)
+            x = self.relu_(x)
+            x = self.maxpool_(x)
+            x = self.layer1_(x)
+            x = self.layer2_(x)
+            x = self.layer3_(x)
+            x = self.layer4_(x)
+            x = self.finalconv_(x)
 
         # x = self.avgpool(x)
         # x = x.view(x.size(0), -1)
@@ -221,7 +239,7 @@ def resnet18(pretrained=False, **kwargs):
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    model = ResNet(BasicBlock, [2, 2, 2, 2], **kwargs)
+    model = ResNet(BasicBlock, [2, 2, 2, 2], type, **kwargs)
     if pretrained:
         model.load_state_dict(model_zoo.load_url(model_urls['resnet18']))
     return model
@@ -232,7 +250,7 @@ def resnet34(pretrained=False, **kwargs):
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    model = ResNet(BasicBlock, [3, 4, 6, 3], **kwargs)
+    model = ResNet(BasicBlock, [3, 4, 6, 3], type, **kwargs)
     if pretrained:
         model.load_state_dict(model_zoo.load_url(model_urls['resnet34']))
     return model
@@ -243,7 +261,8 @@ def resnet50(pretrained=False, **kwargs):
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    model = ResNet(Bottleneck, [3, 4, 6, 3], **kwargs)
+
+    model = ResNet(Bottleneck, [3, 4, 6, 3], type, **kwargs)
     if pretrained:
         model.load_state_dict(model_zoo.load_url(model_urls['resnet50']))
     return model
@@ -254,7 +273,7 @@ def resnet101(pretrained=False, **kwargs):
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    model = ResNet(Bottleneck, [3, 4, 23, 3], **kwargs)
+    model = ResNet(Bottleneck, [3, 4, 23, 3], type, **kwargs)
     if pretrained:
         model.load_state_dict(model_zoo.load_url(model_urls['resnet101']))
     return model
@@ -265,7 +284,7 @@ def resnet152(pretrained=False, **kwargs):
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    model = ResNet(Bottleneck, [3, 8, 36, 3], **kwargs)
+    model = ResNet(Bottleneck, [3, 8, 36, 3], type, **kwargs)
     if pretrained:
         model.load_state_dict(model_zoo.load_url(model_urls['resnet152']))
     return model
