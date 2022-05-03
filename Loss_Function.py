@@ -34,20 +34,13 @@ class ContrastiveLoss(nn.Module):
 
 
     def forward(self, pre_VF, pre_AF, back_VF, back_AF):
-        sim_pre = []
-        #sim_back_V = []
-        #sim_back_V_down = []
-        #sim_back_A = []
-        #sim_back_A_down = []
-        # size = batch_size
         size = pre_VF.size(0)
+        sim_back_V_down=[]
+        sim_back_V=[]
+        sim_back_A_down=[]
+        sim_back_A=[]
 
-
-        #for i in range(0, size):
-        #    sim_pre += torch.log(Ecos_sim(pre_VF[:i, ], pre_AF[:i, ])) # [batch_size, 2048]
-
-        sim_pre = self.cos_sim(pre_VF, pre_AF)   # 先行算一个普通的cos_sim
-#######################################################################
+        #######################################################################
         if self.num == hp.batch_size:
             for i in range(0, size):  # vision to audio, 一个i算一个样本的loss
                 # now = back_VF[i]
@@ -56,11 +49,11 @@ class ContrastiveLoss(nn.Module):
                         #for j in range(0, size):
                         if j == i:
                             continue
-                        negtive = Ecos_sim(back_VF[i], back_AF[j])
+                        negative = Ecos_sim(back_VF[i], back_AF[j])
                         if j == 0:
-                            sim_back_V_down = negtive
+                            sim_back_V_down = negative
                         else:
-                            sim_back_V_down += negtive
+                            sim_back_V_down += negative
 
                 positive = Ecos_sim(back_VF[i], back_AF[i], margin=hp.margin)
 
@@ -127,4 +120,25 @@ class ContrastiveLoss(nn.Module):
 
 
 
-        return hp.balance_parameter * (- 1 / hp.bias * (sim_back_V + sim_back_A)) + (1 - hp.balance_parameter) * sim_pre
+        return hp.balance_parameter * (- 1 / hp.bias * (sim_back_V + sim_back_A)) + (1 - hp.balance_parameter)
+
+class VideoLoss(nn.Module):
+    def __init__(self):  # 假设默认num=32是batch_size
+        super(VideoLoss, self).__init__()
+        self.cos_sim = nn.CosineSimilarity(dim=1, eps=1e-18)
+
+    def forward(self, G_feature,L_feature):
+        sim = self.cos_sim(G_feature, L_feature)
+        return sim
+
+
+class TotalLoss(nn.Module):
+    def __init__(self):
+        super(TotalLoss, self).__init__()
+        self.V_weight=0.3#暂定
+        self.C_weight=0.7#暂定
+
+    def forward(self, V, C):
+
+        return V*self.V_weight+C*self.C_weight
+
