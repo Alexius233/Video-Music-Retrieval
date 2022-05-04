@@ -4,11 +4,11 @@ import librosa
 import librosa.display
 
 # mel-spectrogram parameters
-# SR = 12000  # 采样率
+# SR = 16000  # 采样率
 # N_FFT = 512
 # HOP_LEN = 256
 # DURA = 8.129   # 采样长度
-# n_mel = 96
+# n_mel = 128
 
 # hop_len 的作用是 : Sr * DURA / hop_len 影响wide, n_mel 的作用是 : 决定height,n_mel是多少height是多少
 # n_fft : 似乎是影响了分贝数,特征的整体数值大小
@@ -70,44 +70,54 @@ def Audio_feature_extractionder(indir, SR, N_FFT, HOP_LEN, DURA, is_train = True
                 y = y_percussive
 
             fv = logam(librosa.feature.chroma_stft(y=y, sr=SR, hop_length=HOP_LEN, n_fft=N_FFT))  #  -> 色度频率
+                                        # 高度：n_chroma = 12
             if i == 0:
                 fv_total = fv
             else:
                 fv_total = fv
                 fv_total = np.vstack((fv_total, fv))
 
-            fv = logam(librosa.feature.chroma_cens(y=y, sr=SR, hop_length=HOP_LEN), ref_power=np.max) #   -> 色能量归一化
+            fv = logam(librosa.feature.chroma_cens(y=y, sr=SR, hop_length=HOP_LEN)) #   -> 色能量归一化
+                                        # 高度：n_chroma = 12
             fv_total = np.vstack((fv_total, fv))
 
             fv_mfcc = librosa.feature.mfcc(y=y, sr=SR, hop_length=HOP_LEN)   # —> mfcc
+                        # 高度：12 与n_mfcc无关？
             fv = logam(fv_mfcc, ref_power=np.max)
             fv_total = np.vstack((fv_total, fv))
-            fv = logam(librosa.feature.delta(fv_mfcc), ref_power=np.max)
-            fv_total = np.vstack((fv_total, fv))
-            fv = logam(librosa.feature.delta(fv_mfcc, order=2), ref_power=np.max)
-            fv_total = np.vstack((fv_total, fv))
-
-            fv = logam(librosa.feature.rms(y=y, hop_length=HOP_LEN), ref_power=np.max)
+            fv = logam(librosa.feature.delta(fv_mfcc))
+            fv1 = logam(librosa.feature.delta(fv_mfcc, order=2))   # delta后宽度减半
+                        # 高度 : 20
+            fv = np.hstack((fv, fv1))
             fv_total = np.vstack((fv_total, fv))
 
-            fv = logam(librosa.feature.spectral_centroid(y=y, sr=SR, hop_length=HOP_LEN, n_fft=N_FFT), ref_power=np.max)    # -> 质心
+            fv = logam(librosa.feature.rms(y=y, hop_length=HOP_LEN))   # -> 均方根
+                        # 高度 : 1
             fv_total = np.vstack((fv_total, fv))
 
-            fv = logam(librosa.feature.spectral_bandwidth(y=y, sr=SR, hop_length=HOP_LEN, n_fft=N_FFT),
-                       ref_power=np.max)
+            fv = logam(librosa.feature.spectral_centroid(y=y, sr=SR, hop_length=HOP_LEN, n_fft=N_FFT))    # -> 质心、
+                        # 高度 : 1
             fv_total = np.vstack((fv_total, fv))
 
-            fv = logam(librosa.feature.spectral_rolloff(y=y, sr=SR, hop_length=HOP_LEN, n_fft=N_FFT), ref_power=np.max)
+            fv = logam(librosa.feature.spectral_bandwidth(y=y, sr=SR, hop_length=HOP_LEN, n_fft=N_FFT))   # -> 频带宽度
+                        # 高度 : 1
             fv_total = np.vstack((fv_total, fv))
 
-            fv = logam(librosa.feature.poly_features(y=y, sr=SR, hop_length=HOP_LEN, n_fft=N_FFT), ref_power=np.max)
+            fv = logam(librosa.feature.spectral_rolloff(y=y, sr=SR, hop_length=HOP_LEN, n_fft=N_FFT))    # -> 衰减率
+                        # 高度 : 1
+
             fv_total = np.vstack((fv_total, fv))
 
-            fv = logam(librosa.feature.poly_features(y=y, sr=SR, hop_length=HOP_LEN, n_fft=N_FFT, order=2),
-                       ref_power=np.max)
+            fv = logam(librosa.feature.poly_features(y=y, sr=SR, hop_length=HOP_LEN, n_fft=N_FFT))    # -> 拟合n阶多项式的系数
+                        # 高度 : 2
             fv_total = np.vstack((fv_total, fv))
 
-            fv = logam(librosa.feature.zero_crossing_rate(y=y, hop_length=HOP_LEN, frame_length=N_FFT), ref_power=np.max)   # -> 过零率
+            fv = logam(librosa.feature.poly_features(y=y, sr=SR, hop_length=HOP_LEN, n_fft=N_FFT, order=2))
+                        # 高度 : 3
+            fv_total = np.vstack((fv_total, fv))
+
+            fv = logam(librosa.feature.zero_crossing_rate(y=y, hop_length=HOP_LEN, frame_length=N_FFT))   # -> 过零率
+                        # 高度 : 1
             fv_total = np.vstack((fv_total, fv))
 
 

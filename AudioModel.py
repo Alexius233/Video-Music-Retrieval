@@ -19,7 +19,7 @@ class Audiomodel(nn.Module):
 
         self.WFN = WPN(dropout)
         self.GQDL = GQDL()
-        self.Vice = Vice(123) # 还没确定，记得改
+        self.Vice = Vice(108) # 还没确定，记得改
         self.dropout = dropout
 
         self.Bottleneck1 = nn.Conv1d(hp.out2pool, hp.af_dim, kernel_size=1, stride=1)
