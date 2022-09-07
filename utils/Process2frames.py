@@ -5,8 +5,8 @@ import shutil
 #root = r"G:\VMR_Data"
 #newroot = r"G:\VMR_Data_Pre"
 
-root = r"G:\TRY"
-newroot = r"G:\PROCESS"
+root = r"/root/autodl-tmp/VMR_Data"  
+newroot = r"/root/autodl-tmp/VMR_PRO"
 
 labels = os.listdir(root)
 print(labels)
@@ -37,7 +37,7 @@ for label in sorted(labels):
 
         if types == 'video':
             root_video = os.path.join(root_dir, types)   # 老地址video
-            video_dir = os.path.join(dir, types)  # 建立新地址的video
+            video_dir = os.path.join(dir, types)  # 建立新地址的/root/autodl-tmp/VMR_PRO/types/video
             if not os.path.exists(video_dir):
                 os.mkdir(video_dir)
 
@@ -49,10 +49,10 @@ for label in sorted(labels):
                 print(next_root_video)
                 vc = cv2.VideoCapture(next_root_video)  # 读入视频
 
-                fps = int(vc.get(int(cv2.CAP_PROP_FPS))) # 读取码率，每秒几帧
-                size = int(vc.get(int(cv2.CAP_PROP_FRAME_COUNT))) # 长度，总帧数
+                fps = round(vc.get(int(cv2.CAP_PROP_FPS)))  # 读取码率，每秒几帧
+                size = int(vc.get(int(cv2.CAP_PROP_FRAME_COUNT)))  # 长度，总帧数
                 size = size - 0.5 * fps
-                gap = size / 64          # 设置为抽64帧
+                gap = int(size / 64)          # 设置为抽64帧
 
                 fv = open(os.path.join(dir, "videofilename.txt"), "a")   # 建立txt
                 fv.write(os.path.join(os.path.join(video_dir, root), count))   # 写入新地址 video/i.mp4
@@ -63,6 +63,7 @@ for label in sorted(labels):
 
                 c = int(0.25 * fps)  # 开始设置在0.25fps
                 number = 0
+                num = 1
                 rval = vc.isOpened()
                 print(rval)
 
@@ -72,11 +73,18 @@ for label in sorted(labels):
 
                     rval, frame = vc.read()
 
-                    if rval & (number == c):
-                        pic_root = os.path.join(os.path.join(video_dir, count), str(number) + '.png')
-                        cv2.imwrite(pic_root, frame)
-                        cv2.waitKey(1)
-                        c = c + gap
+                    if rval :
+                        if num == 65 :   # 改动：64个强制终止
+                            num = 1
+                            break
+                        if number == c :
+                            pic_root = os.path.join(os.path.join(video_dir, count), str(num) + '.png')
+                            cv2.imwrite(pic_root, frame)
+                            cv2.waitKey(1)
+                            c = c + gap
+                            num = num + 1
+                            
+                            
 
                     else:
                         break

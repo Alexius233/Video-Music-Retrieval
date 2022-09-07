@@ -51,10 +51,12 @@ class Transforms_fine:
 """
 def Transforms(size, s=1) :
     color_jitter = transforms.ColorJitter(0.8 * s, 0.8 * s, 0.8 * s, 0.2 * s)
-    data_transforms = transforms.Compose([transforms.RandomResizedCrop(size=size),
+    data_transforms = transforms.Compose([
+                                         transforms.RandomResizedCrop(size=size),
                                           transforms.RandomHorizontalFlip(),
                                           transforms.RandomApply([color_jitter], p=0.8),
-                                          transforms.RandomGrayscale(p=0.2),
-                                          transforms.ToTensor()])
+                                          transforms.RandomGrayscale(p=0.2)
+                                         # transforms.ToTensor()
+                                         ])
     return data_transforms
 
