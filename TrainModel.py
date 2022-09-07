@@ -14,7 +14,8 @@ from utils.videotransforms import Transforms
 from data.ViewGenerator import ContrastiveLearningViewGenerator as CLV
 from torch.utils.tensorboard import SummaryWriter
 from inference import assess
-
+import torch.autograd
+import gc
 
 
 
@@ -28,10 +29,10 @@ def train(log_dir, dataset_size, device, writer, start_epoch=0):
 
 
     # 整合的最终模型
-    model = TotalModel(0.5).cuda()
+    model = TotalModel(is_train=True,dropout=0.5).cuda()
 
     if torch.cuda.device_count() > 1:
-       model = DataParallel(model)
+        model=DataParallel(model)
         # GPU不止一个，并行计算
     if start_epoch != 0:
         model_path = os.path.join(log_dir, 'state', 'epoch{}.pt'.format(start_epoch))
@@ -67,27 +68,29 @@ def train(log_dir, dataset_size, device, writer, start_epoch=0):
 
     # load data
     if dataset_size is None:
+          train_dataset = VMR_Dataset(hp.root1,
+                                      hp.start,
+                                      hp.strategy1,
+                                      transforms=Transforms(224),
+                                      row=slice(0, None))
+    else:  # 有问题
         train_dataset = VMR_Dataset(hp.root1,
                                     hp.start,
                                     hp.strategy1,
                                     transforms=CLV(Transforms(224),
-                                                   Transforms(96),
+                                                   Transforms(224),
                                                    n_views = 2),
-                                    row=slice(hp.eval_size, None))
-    else:
-        train_dataset = VMR_Dataset(hp.root1,
-                                    hp.start,
-                                    hp.strategy1,
-                                    transforms=CLV(Transforms(224),
-                                                   Transforms(96),
-                                                   n_views = 2),
-                                    row=slice(hp.eval_size, hp.eval_size + dataset_size))
+                                    row=slice(0, hp.eval_size + dataset_size))
 
     train_loader = DataLoader(dataset=train_dataset,
                               batch_size=hp.batch_size,
                               drop_last=True,
                               num_workers=8,
+                              prefetch_factor=2,
                               shuffle=True)
+    print(len(train_dataset))
+    print("大小")
+    print(len(train_loader))
 
     num_train_data = len(train_dataset)
     total_step = hp.num_epochs * num_train_data // hp.batch_size
@@ -96,41 +99,50 @@ def train(log_dir, dataset_size, device, writer, start_epoch=0):
     global_step = step + start_step
     prev = beg = int(time())
 
-    for epoch in range(start_epoch + 1, hp.num_epochs):  # 正式开始训练
-
+    for epoch in range(start_epoch + 1, hp.num_epochs+1):  # 正式开始训练
+    
+        now = 'is epoch{} now'.format(epoch)
+        print(now)
+        
         model.train(True)
         loss_epoch = 0
         for i, batch in enumerate(train_loader):
 
+            print(' read and train now')
             step += 1
             global_step += 1
 
             mels = batch['mel'].to(device)
-            frames1 = batch['videos1'].to(device)   # global
-            frames2 = batch['videos2'].to(device)   # local
-            frames = torch.stack([frames1, frames2], dim=0)
+            frames1 = batch['video1'].to(device)   # global
+            frames2 = batch['video2'].to(device)   # local 
+
             supplement = batch['fv_feature'].to(device)  # 三个手工特征
+            
+            #read = '  finish read data in batch{}'.format(batch)  # 显示一下已经读数据了
+            #print(read)
 
             optimizer.zero_grad()
-
-            video_feature_G, video_feature_L, audio_feature= model(mels,supplement, frames)
+            
+            video_feature_G, video_feature_L, audio_feature= model(mels,supplement, frames2, frames1)
 
             vloss = sub_critertion1(video_feature_L, video_feature_G)
             closs = sub_critertion2(video_feature_L, audio_feature)
             loss = criterion(vloss, closs)
-            loss_epoch += loss
-            loss.backward()
+            loss_epoch += loss.item()  
+            showloss = 'loss now is {}'.format(loss.item())
+            print(showloss)
+            closs.backward()  #改了
+            
+            #writer.add_scalar("Loss/train", loss.item() / len(train_loader), step)  # 一个batch的loss的写入
 
-            writer.add_scalar("Loss/train", loss / len(train_loader), step)  # 一个batch的loss的写入
-
-            #torch.nn.utils.clip_grad_norm_(model.parameters(), 1.)  # clip gradients
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.)  # clip gradients
             optimizer.step()  # scheduler.step()
-
+            
 
             if global_step in hp.lr_step:  # 变更学习率
                 optimizer = set_lr(optimizer, global_step, f, writer=writer)
 
-            if (i + 1) % hp.log_per_batch == 0:   # 写时间
+            if (i + 1) % hp.log_per_step == 0:   # 写时间
                 now = int(time())
                 use_time = now - prev
                 # total_time = hp.num_epoch * (now - beg) * num_train_data // (hp.batch_size * (i + 1) + epoch * num_train_data)
@@ -138,7 +150,7 @@ def train(log_dir, dataset_size, device, writer, start_epoch=0):
                 left_time = total_time - (now - beg)
                 left_time_h = left_time // 3600
                 left_time_m = left_time // 60 % 60
-                msg = 'step: {}/{}, epoch: {}, batch {}, loss: {:.3f}, mel_loss: {:.3f}, mag_loss: {:.3f}, use_time: {}s, left_time: {}h {}m'
+                msg = 'step: {}/{}, epoch: {}, batch {}, loss: {:.3f}, use_time: {}s, left_time: {}h {}m'
                 msg = msg.format(global_step, total_step, epoch, i + 1, loss.item(), use_time, left_time_h, left_time_m)
 
                 f.write(msg + '\n')
@@ -146,8 +158,12 @@ def train(log_dir, dataset_size, device, writer, start_epoch=0):
 
                 prev = now
 
-            writer.add_scalar("Loss/train_epoch", loss_epoch / len(train_loader), epoch)   # 写入一个epoch的平均loss
-
+                #writer.add_scalar("Loss/train_epoch", loss_epoch / len(train_loader), epoch)   # 写入一个epoch的平均loss
+        
+        #del loss, vloss, closs, batch, gradient1, gradient2, gradient3
+        del  closs, batch
+        gc.collect()
+        torch.cuda.empty_cache()
 
         # save model, optimizer
         if epoch % hp.save_per_epoch == 0 and epoch != 0:

@@ -48,6 +48,7 @@ def evaluate_scores(dataloader, model):  # tst_reader是个dataloader ，       
     all_scores = []
 
     for batch in dataloader:   # 这么读取是dataset写好的固定方式，我还没写
+        print("进循环")
         video_names = batch['video_name']
         audio_names = batch['audio_name']
         video_data = batch['video']
@@ -118,6 +119,7 @@ def assess(log_dir, num_epoch, load = True):  # 综合的： 读取，计算，�
                                                Transforms(96),
                                                n_views = 1),
                                 row=slice(hp.eval_size, None))
+
 
     test_loader = DataLoader(dataset=test_dataset,
                               batch_size=hp.test_batch_size,
