@@ -8,11 +8,16 @@ class TCN(nn.Module):  # 使用时候创建类可以调用__init__和forward，�
     def __init__(self, input_size, output_size, num_channels, kernel_size, dropout):
         super(TCN, self).__init__()
         self.tcn = TemporalConvNet(input_size, num_channels, kernel_size, dropout=dropout)  # 初始化 TCN
-        self.linear = nn.Linear(num_channels[-1], output_size)
+        self.linear = nn.Conv1d(num_channels[-1], output_size, kernel_size=1)  # 可训练的线性投影 
 
     def forward(self, x):
-        output = self.tcn(x.transpose(1, 2)).transpose(1, 2)  # (1,2)维度上转制
-        pred = self.linear(output[:, -1, :])
+        #output = self.tcn(x.transpose(1, 2)).transpose(1, 2)  # (1,2)维度上转制
+        output = self.tcn(x)
+        #pred = self.linear(output[:, -1, :])
+        #pred = self.linear(output[::1, :, :].transpose(0, 1))
+        #pred = self.linear(output.transpose(1, 2)).transpose(1, 2)
+        pred = self.linear(output)
+        #print(pred.shape)
         return pred
 
 

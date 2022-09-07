@@ -1,7 +1,8 @@
+import torch
 import torch.nn as nn
-from WFN import WPN
+from model.Audio.WFN import WPN
 from model.Audio.GQDL import GQDL
-from Vice_Audionet import vice_audiomodel as Vice
+from model.Audio.Vice_Audionet import vice_audiomodel as Vice
 from Hyperparameters import Hyperparameters as hp
 
 
@@ -19,25 +20,40 @@ class Audiomodel(nn.Module):
 
         self.WFN = WPN(dropout)
         self.GQDL = GQDL()
-        self.Vice = Vice(108) # 还没确定，记得改
+        self.Vice = Vice(86) 
         self.dropout = dropout
 
-        self.Bottleneck1 = nn.Conv1d(hp.out2pool, hp.af_dim, kernel_size=1, stride=1)
-        self.Bottleneck2 = nn.Conv1d(hp.af_dim, hp.out2pool, kernel_size=1, stride=1)
-        self.net = nn.Sequential(
+        self.Bottleneck1 = nn.Conv1d(hp.meltingc, hp.af_dim, kernel_size=1, stride=1)
+        self.Bottleneck2 = nn.Conv1d(hp.af_dim, 128, kernel_size=1, stride=1)
+        self.meltingnet = nn.Sequential(
             self.Bottleneck1,
             self.Bottleneck2,
         )
 
-    def forward(self, input, supplement_data):
+    def forward(self, mels, supplement_data):
 
-        Specinput, supplement = input
+        Specinput = mels
+        supplement = supplement_data
+        if torch.isnan(Specinput).sum()>0 or torch.isnan(supplement).sum()>0:
+            print("音频输入存在NaN")
         mid_feature = self.WFN(Specinput)
+        if torch.isnan(mid_feature).sum()>0:
+            print("TCN存在NaN")
+        #print("一")
+        #print(mid_feature.shape)
         supplement_feature = self.Vice(supplement_data)
-        #原始版融合策略：先加再一个卷积
-        mid_feature = mid_feature + supplement_feature
-        mid_feature = self.net(mid_feature)
+        if torch.isnan(supplement_feature).sum()>0:
+            print("vice存在NaN")
+        #print("二")
+        #print(supplement_feature.shape)
+        #原始版融合策略：先加再一个卷积（可以改进）
+        mid_feature = torch.cat((mid_feature, supplement_feature), 1)
+        mid_feature = self.meltingnet(mid_feature)
+        if torch.isnan(mid_feature).sum()>0:
+            print("融合后存在NaN")
         spec_feature = self.GQDL(mid_feature)
+        if torch.isnan(spec_feature).sum()>0:
+            print("attention后存在NaN")
 
 
         return  spec_feature
