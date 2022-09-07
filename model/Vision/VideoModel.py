@@ -1,5 +1,6 @@
+import torch
 import torch.nn as nn
-from TSM_UResNet import resnet34,resnet50,ResNet
+from model.Vision.TSM_UResNet import resnet34,resnet50,ResNet
 
 
 class VideoModel(nn.Module):
@@ -7,21 +8,24 @@ class VideoModel(nn.Module):
     def __init__(self, is_train):
         super().__init__()
 
-        self.train = is_train
-        self.ResNet_G = resnet50(type = 'global')
-        self.ResNet_L = resnet50(type = 'local')  # resnet不载入预训练数据
+        self.is_train = is_train
+        self.ResNet_G = resnet50(duration=8)
+        self.ResNet_L = resnet50(duration=64)  # resnet不载入预训练数据
 
 
-    def forward(self, input):
+    def forward(self, frames1, frames2):
 
-        if self.is_train == True :
-            Videoinput1, Videoinput2 = input[0], input[1]
+        if self.is_train == True:
+            Videoinput1 = frames1
+            Videoinput2 = frames2
             global_feature  = self.ResNet_G(Videoinput1)
             local_feature = self.ResNet_L(Videoinput2)
+           
 
             return global_feature, local_feature
-        else :
-            Videoinput = input
+
+        else:
+            Videoinput = inputs
             local_feature = self.ResNet_L(Videoinput)
 
             return local_feature
